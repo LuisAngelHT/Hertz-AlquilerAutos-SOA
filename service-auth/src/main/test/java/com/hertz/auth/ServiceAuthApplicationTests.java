@@ -1,10 +1,10 @@
-package com.api_gateway;
+package com.hertz.auth;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ApiGatewayApplicationTests {
+class ServiceAuthApplicationTests {
 
 	@Test
 	void contextLoads() {

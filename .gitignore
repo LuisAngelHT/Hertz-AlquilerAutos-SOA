@@ -1,0 +1,28 @@
+# Maven build output
+**/target/
+**/build/
+
+# Local environment variables and credentials
+.env
+.env.*
+!.env.example
+**/src/main/resources/application-local.yml
+
+# IDE settings
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated/
+.springBeans
+.sts4-cache/
+
+# Operating-system files and logs
+.DS_Store
+Thumbs.db
+*.log
