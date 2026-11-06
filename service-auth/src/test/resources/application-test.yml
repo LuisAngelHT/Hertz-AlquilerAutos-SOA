@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:serviceauth;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;INIT=CREATE SCHEMA IF NOT EXISTS autenticacion
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+jwt:
+  secret: test-secret-that-is-at-least-32-characters-long
+  expiration-minutes: 60

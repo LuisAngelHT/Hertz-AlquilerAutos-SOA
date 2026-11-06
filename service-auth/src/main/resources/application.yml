@@ -1,0 +1,29 @@
+server:
+  port: ${PORT:8087}
+
+spring:
+  profiles:
+    default: local
+  application:
+    name: service-auth
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration-minutes: ${JWT_EXPIRATION:60}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
