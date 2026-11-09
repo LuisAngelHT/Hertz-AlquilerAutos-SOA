@@ -1,9 +1,18 @@
 package com.hertz.auth.controller;
 
-import com.hertz.auth.dto.;
+import com.hertz.auth.dto.LoginRequest;
+import com.hertz.auth.dto.LoginResponse;
+import com.hertz.auth.dto.PerfilResponse;
+import com.hertz.auth.dto.ValidarTokenRequest;
+import com.hertz.auth.dto.ValidarTokenResponse;
 import com.hertz.auth.service.AuthService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/auth")
