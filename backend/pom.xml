@@ -12,5 +12,6 @@
     <modules>
         <module>service-auth</module>
         <module>api-gateway</module>
+        <module>service-cliente</module>
     </modules>
 </project>
