@@ -54,14 +54,25 @@ export async function loginWithCredentials(
     credentials: "omit",
   });
 
+  const responseBody = await response.text();
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = responseBody ? JSON.parse(responseBody) : null;
   } catch {
+    if (!response.ok) {
+      throw new Error(
+        `El servidor respondió con HTTP ${response.status}. Revisa la disponibilidad del gateway y del servicio de autenticación.`,
+      );
+    }
     throw new Error("El servidor devolvió una respuesta que no se pudo leer.");
   }
 
   if (!response.ok) {
+    if (response.status >= 500) {
+      throw new Error(
+        `El servidor respondió con HTTP ${response.status}. Revisa la disponibilidad del gateway y del servicio de autenticación.`,
+      );
+    }
     throw new Error(getErrorMessage(isRecord(payload) ? payload : {}));
   }
 
