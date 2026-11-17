@@ -20,7 +20,7 @@ public class TokenBucket {
         this(capacidad, System::currentTimeMillis);
     }
 
-    TokenBucket(int capacidad, LongSupplier reloj) {
+    public TokenBucket(int capacidad, LongSupplier reloj) {
         if (capacidad < 1) {
             throw new IllegalArgumentException("La capacidad debe ser al menos 1");
         }

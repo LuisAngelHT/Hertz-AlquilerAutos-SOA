@@ -36,7 +36,14 @@ public class FlotaException extends RuntimeException {
     // 403: el rol del usuario no puede cambiar el estado (solo AGENTE y ADMINISTRADOR).
     public static FlotaException rolNoAutorizado() {
         return new FlotaException("ROL_NO_AUTORIZADO", HttpStatus.FORBIDDEN,
-                "Solo los roles AGENTE o ADMINISTRADOR pueden cambiar el estado de un vehiculo");
+                "Solo los roles AGENTE, ADMINISTRADOR o ADMINISTRADOR_SUCURSAL pueden cambiar el estado de un vehiculo");
+    }
+
+    // 403: el usuario es de una sucursal (o no tiene sucursal asignada) y el vehículo es de otra.
+    public static FlotaException sucursalNoAutorizada(String placa, String sucursalVehiculo) {
+        return new FlotaException("SUCURSAL_NO_AUTORIZADA", HttpStatus.FORBIDDEN,
+                "Solo puedes cambiar el estado de vehiculos de tu sucursal; el vehiculo " + placa
+                        + " es de " + sucursalVehiculo);
     }
 
     // 400: datos mal enviados (por ejemplo fechaFin anterior a fechaInicio).

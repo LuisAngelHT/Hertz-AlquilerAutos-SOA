@@ -1,5 +1,6 @@
 package com.hertz.gateway.filter;
 
+import com.hertz.gateway.ratelimit.TokenBucket;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.http.HttpStatus;
@@ -27,7 +28,8 @@ class FlotaRateLimitFilterTest {
 
     @Test
     void laSolicitudNumero201DeDisponibilidadRecibe429() {
-        FlotaRateLimitFilter filtro = new FlotaRateLimitFilter(200);
+        // Reloj fijo: si usara el reloj real, en una PC lenta se repondria una ficha durante el bucle.
+        FlotaRateLimitFilter filtro = new FlotaRateLimitFilter(new TokenBucket(200, () -> 0L));
 
         for (int i = 0; i < 200; i++) {
             MockServerWebExchange ex = get("/api/v1/flota/disponibilidad");

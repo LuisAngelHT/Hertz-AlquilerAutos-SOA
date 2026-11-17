@@ -111,13 +111,13 @@ export function LoginPage() {
               <CarFront className="size-6" aria-hidden="true" />
             </div>
             <p className="mb-2 text-sm font-semibold tracking-[0.12em] text-zinc-500 uppercase">
-              Bienvenido de nuevo
+              Portal Hertz
             </p>
             <h2 className="text-3xl font-semibold tracking-tight text-zinc-950 sm:text-4xl">
-              Inicia sesión
+              Accede o crea tu cuenta
             </h2>
             <p className="mt-3 text-sm leading-6 text-zinc-500 sm:text-base">
-              Ingresa tus credenciales para acceder a tu cuenta.
+              Inicia sesión o regístrate como cliente para comenzar.
             </p>
           </div>
 

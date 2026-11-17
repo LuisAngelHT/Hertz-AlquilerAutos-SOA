@@ -1,14 +1,14 @@
+import { ApiRequestError, requestJson } from "@/lib/api-client";
+
 export interface LoginResponse {
   token: string;
   tipo: string;
   expiraEn: string;
   rol: string;
   nombre: string;
+  /** Sede del usuario (AGENTE / ADMINISTRADOR_SUCURSAL); null o ausente si no tiene. */
+  sucursal?: string | null;
 }
-
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"
-).replace(/\/+$/, "");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -45,40 +45,37 @@ export async function loginWithCredentials(
   correo: string,
   password: string,
 ): Promise<LoginResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ correo: correo.trim(), password }),
-    credentials: "omit",
-  });
-
-  const responseBody = await response.text();
-  let payload: unknown;
   try {
-    payload = responseBody ? JSON.parse(responseBody) : null;
-  } catch {
-    if (!response.ok) {
+    const payload = await requestJson<unknown>("/api/v1/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ correo: correo.trim(), password }),
+    });
+
+    if (!isLoginResponse(payload)) {
       throw new Error(
-        `El servidor respondió con HTTP ${response.status}. Revisa la disponibilidad del gateway y del servicio de autenticación.`,
+        "La respuesta de inicio de sesión no tiene el formato esperado.",
       );
     }
-    throw new Error("El servidor devolvió una respuesta que no se pudo leer.");
-  }
 
-  if (!response.ok) {
-    if (response.status >= 500) {
+    return payload;
+  } catch (error) {
+    if (!(error instanceof ApiRequestError)) {
+      throw error;
+    }
+    if (error.status >= 500) {
       throw new Error(
-        `El servidor respondió con HTTP ${response.status}. Revisa la disponibilidad del gateway y del servicio de autenticación.`,
+        `El servidor respondió con HTTP ${error.status}. Revisa la disponibilidad del gateway y del servicio de autenticación.`,
       );
     }
-    throw new Error(getErrorMessage(isRecord(payload) ? payload : {}));
+    if (error.code === "CREDENCIALES_INVALIDAS") {
+      throw new Error("El correo o la contraseña no son correctos.");
+    }
+    if (error.code === "USUARIO_INACTIVO") {
+      throw new Error("Tu cuenta está inactiva. Contacta al administrador.");
+    }
+    if (error.code === "SOLICITUD_INVALIDA") {
+      throw new Error(error.message || "Revisa los datos ingresados.");
+    }
+    throw new Error(getErrorMessage({ mensaje: error.message }));
   }
-
-  if (!isLoginResponse(payload)) {
-    throw new Error("La respuesta de inicio de sesión no tiene el formato esperado.");
-  }
-
-  return payload;
 }

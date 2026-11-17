@@ -16,7 +16,7 @@ spring:
             - id: service-cliente
               uri: ${CLIENTE_SERVICE_URL:http://localhost:8081}
               predicates:
-                - Path=/api/v1/cliente/**
+                - Path=/api/v1/cliente,/api/v1/cliente/**
             # SVC-03 Flota: todas las rutas /api/v1/flota/** van a service-flota.
             # El filtro JwtValidationFilter ya validó el token antes de llegar aquí.
             - id: service-flota
@@ -33,6 +33,8 @@ spring:
 services:
   auth:
     url: ${AUTH_SERVICE_URL:http://localhost:8087}
+gateway:
+  internal-secret: ${GATEWAY_SECRET}
 
 # Throttling del documento: la consulta de disponibilidad de flota se limita a 200 por minuto
 # para proteger la base de datos. Ver FlotaRateLimitFilter. Si se pasa, el gateway responde 429.

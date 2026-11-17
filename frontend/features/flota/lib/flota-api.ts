@@ -24,6 +24,34 @@ export interface Disponibilidad {
   vehiculos: Vehiculo[];
 }
 
+/** Un cambio de estado del historial: quién lo hizo, cuándo y por qué. */
+export interface CambioHistorial {
+  placa: string;
+  estadoAnterior: EstadoVehiculo;
+  estadoNuevo: EstadoVehiculo;
+  usuario: string;
+  rol: string;
+  motivo: string | null;
+  fecha: string; // ISO 8601
+}
+
+export interface FiltroListado {
+  estado?: EstadoVehiculo;
+  sucursal?: string; // vacío = todas
+  texto?: string; // marca o modelo
+  pagina?: number; // empieza en 0
+  tamano?: number; // vehículos por página (el backend usa 12 y acepta hasta 50)
+}
+
+/** Una página del listado: "total" cuenta todos los vehículos que cumplen el filtro. */
+export interface PaginaVehiculos {
+  total: number;
+  pagina: number;
+  tamano: number;
+  totalPaginas: number;
+  vehiculos: Vehiculo[];
+}
+
 export interface BusquedaDisponibilidad {
   sucursal: string;
   categoria: string;
@@ -137,14 +165,33 @@ export function consultarVehiculo(sesion: Sesion, placa: string): Promise<Vehicu
   return solicitar<Vehiculo>(sesion, `/vehiculos/${encodeURIComponent(placa.trim())}`);
 }
 
-/** PUT /api/v1/flota/vehiculos/{placa}/estado — solo AGENTE o ADMINISTRADOR. */
+/** PUT /api/v1/flota/vehiculos/{placa}/estado — solo AGENTE o ADMINISTRADOR. El motivo es opcional y queda en el historial. */
 export function actualizarEstado(
   sesion: Sesion,
   placa: string,
   estado: EstadoVehiculo,
+  motivo?: string,
 ): Promise<Vehiculo> {
+  const texto = motivo?.trim();
   return solicitar<Vehiculo>(sesion, `/vehiculos/${encodeURIComponent(placa)}/estado`, {
     method: "PUT",
-    body: { estado },
+    body: texto ? { estado, motivo: texto } : { estado },
   });
+}
+
+/** GET /api/v1/flota/vehiculos — una página de vehículos por estado (por defecto DISPONIBLE), sucursal y marca/modelo. */
+export function listarVehiculos(sesion: Sesion, filtro: FiltroListado = {}): Promise<PaginaVehiculos> {
+  const params = new URLSearchParams();
+  if (filtro.estado) params.set("estado", filtro.estado);
+  if (filtro.sucursal) params.set("sucursal", filtro.sucursal);
+  if (filtro.texto?.trim()) params.set("texto", filtro.texto.trim());
+  if (filtro.pagina !== undefined) params.set("pagina", String(filtro.pagina));
+  if (filtro.tamano !== undefined) params.set("tamano", String(filtro.tamano));
+  const query = params.toString();
+  return solicitar<PaginaVehiculos>(sesion, `/vehiculos${query ? `?${query}` : ""}`);
+}
+
+/** GET /api/v1/flota/vehiculos/{placa}/historial — del cambio más reciente al más antiguo. */
+export function consultarHistorial(sesion: Sesion, placa: string): Promise<CambioHistorial[]> {
+  return solicitar<CambioHistorial[]>(sesion, `/vehiculos/${encodeURIComponent(placa)}/historial`);
 }

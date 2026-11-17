@@ -32,14 +32,18 @@ public class JwtService {
         Instant ahora = Instant.now();
         Instant expira = ahora.plus(Duration.ofMinutes(props.expirationMinutes()));
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claimsBuilder = JwtClaimsSet.builder()
                 .issuer(ISSUER)
                 .subject(usuario.getCorreo())
                 .issuedAt(ahora)
                 .expiresAt(expira)
                 .claim("rol", usuario.getRol().name())
-                .claim("nombre", usuario.getNombre())
-                .build();
+                .claim("nombre", usuario.getNombre());
+        // La sucursal va en el token solo si el usuario tiene una; el gateway la envía como X-Sucursal.
+        if (usuario.getSucursal() != null && !usuario.getSucursal().isBlank()) {
+            claimsBuilder.claim("sucursal", usuario.getSucursal());
+        }
+        JwtClaimsSet claims = claimsBuilder.build();
 
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
         String token = encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();

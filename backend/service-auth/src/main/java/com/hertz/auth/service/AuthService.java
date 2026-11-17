@@ -1,6 +1,7 @@
 package com.hertz.auth.service;
 
 import com.hertz.auth.dto.*;
+import com.hertz.auth.entity.Rol;
 import com.hertz.auth.entity.Usuario;
 import com.hertz.auth.exception.AuthException;
 import com.hertz.auth.repository.UsuarioRepository;
@@ -40,12 +41,13 @@ public class AuthService {
         JwtService.TokenEmitido emitido = jwtService.generar(usuario);
 
         return new LoginResponse(emitido.token(), "Bearer", emitido.expiraEn(),
-                usuario.getRol().name(), usuario.getNombre());
+                usuario.getRol().name(), usuario.getNombre(), usuario.getSucursal());
     }
 
     public ValidarTokenResponse validarToken(String token) {
         Jwt jwt = jwtService.validar(token);
-        return new ValidarTokenResponse(true, jwt.getSubject(), jwt.getClaimAsString("rol"), jwt.getExpiresAt());
+        return new ValidarTokenResponse(true, jwt.getSubject(), jwt.getClaimAsString("rol"), jwt.getExpiresAt(),
+                jwt.getClaimAsString("sucursal"));
     }
 
     @Transactional(readOnly = true)
@@ -57,5 +59,17 @@ public class AuthService {
         Usuario usuario = usuarioRepository.findByCorreoIgnoreCase(jwt.getSubject())
                 .orElseThrow(AuthException::tokenInvalido);
         return new PerfilResponse(usuario.getCorreo(), usuario.getNombre(), usuario.getRol().name());
+    }
+    
+    @Transactional
+    public UsuarioCreadoResponse crearUsuarioCliente(CrearUsuarioRequest request) {
+        String correo = request.correo().trim().toLowerCase();
+        if (usuarioRepository.existsByCorreoIgnoreCase(correo)) {
+            throw AuthException.correoYaRegistrado();
+        }
+        Usuario usuario = new Usuario(correo, request.nombre().trim(),
+                passwordEncoder.encode(request.password()), Rol.CLIENTE, request.clienteId());
+        Usuario guardado = usuarioRepository.save(usuario);
+        return new UsuarioCreadoResponse(guardado.getId(), guardado.getCorreo(), guardado.getRol().name());
     }
 }

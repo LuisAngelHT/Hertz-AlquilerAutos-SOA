@@ -25,6 +25,11 @@ spring:
       # Las tablas ya existen (script db/flota.sql): Hibernate solo comprueba que coincidan, no las crea.
       ddl-auto: validate
 
+# Secreto compartido con el API Gateway (variable GATEWAY_SECRET, la misma en todos los servicios).
+# Flota solo acepta solicitudes que traigan el header X-Gateway-Secret con este valor.
+gateway:
+  secret: ${GATEWAY_SECRET}
+
 management:
   endpoints:
     web:

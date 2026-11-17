@@ -1,6 +1,7 @@
 package com.hertz.gateway.filter;
 
 import com.hertz.gateway.ratelimit.TokenBucket;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -28,9 +29,15 @@ public class FlotaRateLimitFilter implements GlobalFilter, Ordered {
 
     private final TokenBucket bucket;
 
+    @Autowired
     public FlotaRateLimitFilter(
             @Value("${rate-limit.flota-disponibilidad.por-minuto:200}") int porMinuto) {
         this.bucket = new TokenBucket(porMinuto);
+    }
+
+    // Solo para pruebas: permite inyectar una cubeta con reloj controlado (sin depender del tiempo real).
+    FlotaRateLimitFilter(TokenBucket bucket) {
+        this.bucket = bucket;
     }
 
     @Override

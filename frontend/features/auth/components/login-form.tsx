@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Eye,
@@ -13,20 +13,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  loginWithCredentials,
-  type LoginResponse,
-} from "@/features/auth/lib/auth-api";
-
-const SESSION_KEY = "hertz-auth-session";
+import { loginWithCredentials } from "@/features/auth/lib/auth-api";
+import { saveSession } from "@/features/auth/lib/auth-session";
+import { ClienteRegistroForm } from "@/features/clientes/components/cliente-registro-form";
 
 export function LoginForm() {
+  const router = useRouter();
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
+  const [registrando, setRegistrando] = useState(false);
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sesion, setSesion] = useState<LoginResponse | null>(null);
+  const [registroExitoso, setRegistroExitoso] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,8 +34,8 @@ export function LoginForm() {
 
     try {
       const resultado = await loginWithCredentials(correo, password);
-      window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(resultado));
-      setSesion(resultado);
+      saveSession(resultado);
+      router.push("/clientes");
     } catch (cause) {
       setError(
         cause instanceof TypeError
@@ -50,53 +49,46 @@ export function LoginForm() {
     }
   }
 
-  function handleLogout() {
-    window.sessionStorage.removeItem(SESSION_KEY);
-    setSesion(null);
-    setPassword("");
-    setError(null);
-  }
-
-  if (sesion) {
+  if (registrando) {
     return (
-      <Card className="rounded-3xl border-0 bg-white shadow-[0_18px_60px_-32px_rgba(24,24,27,0.28)] ring-1 ring-zinc-200/80">
-        <CardContent className="p-6 sm:p-8">
-          <div className="mb-5 grid size-14 place-items-center rounded-2xl bg-[#fff4b8] text-zinc-950">
-            <span className="text-2xl font-semibold">✓</span>
-          </div>
-          <p className="text-sm font-semibold text-amber-700">Acceso correcto</p>
-          <h3 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950">
-            ¡Hola, {sesion.nombre}!
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">
-            Iniciaste sesión como{" "}
-            <span className="font-medium text-zinc-800">{sesion.rol}</span>.
-          </p>
-          {/* Acceso a la pantalla de gestión de flota (features/flota). */}
-          <Link
-            href="/flota"
-            className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#ffd400] text-sm font-bold text-zinc-950 transition-colors hover:bg-[#f2c900]"
-          >
-            Ir a Flota
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </Link>
-          <Button
+      <div className="space-y-4">
+        <ClienteRegistroForm
+          modalidad="autoregistro"
+          onPublicSuccess={(cliente) => {
+            setCorreo(cliente.email);
+            setPassword("");
+            setError(null);
+            setRegistroExitoso(true);
+            setRegistrando(false);
+          }}
+        />
+        <p className="text-center text-sm text-zinc-500">
+          ¿Ya tienes una cuenta?{" "}
+          <button
             type="button"
-            variant="outline"
-            className="mt-3 h-11 w-full rounded-xl border-zinc-200"
-            onClick={handleLogout}
+            onClick={() => setRegistrando(false)}
+            className="font-semibold text-zinc-900 underline decoration-amber-400 decoration-2 underline-offset-4 hover:text-amber-700"
           >
-            Cerrar sesión
-          </Button>
-        </CardContent>
-      </Card>
+            Inicia sesión
+          </button>
+        </p>
+      </div>
     );
   }
 
   return (
-    <Card className="rounded-3xl border-0 bg-white shadow-[0_18px_60px_-32px_rgba(24,24,27,0.28)] ring-1 ring-zinc-200/80">
-      <CardContent className="p-5 sm:p-8">
-        <form className="space-y-5" onSubmit={handleSubmit}>
+    <div className="space-y-4">
+      <Card className="rounded-3xl border-0 bg-white shadow-[0_18px_60px_-32px_rgba(24,24,27,0.28)] ring-1 ring-zinc-200/80">
+        <CardContent className="p-5 sm:p-8">
+          {registroExitoso && (
+            <div
+              role="status"
+              className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+            >
+              Cuenta creada. Inicia sesión con tu correo y la contraseña que registraste.
+            </div>
+          )}
+          <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
             <label
               htmlFor="correo"
@@ -205,20 +197,35 @@ export function LoginForm() {
               </>
             )}
           </Button>
-        </form>
+          </form>
 
-        <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-zinc-100" />
-          <span className="text-[11px] font-medium tracking-[0.12em] text-zinc-400 uppercase">
-            Hertz
-          </span>
-          <div className="h-px flex-1 bg-zinc-100" />
-        </div>
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-zinc-100" />
+            <span className="text-[11px] font-medium tracking-[0.12em] text-zinc-400 uppercase">
+              Hertz
+            </span>
+            <div className="h-px flex-1 bg-zinc-100" />
+          </div>
 
-        <p className="text-center text-xs leading-5 text-zinc-400">
-          Al continuar, accedes de forma segura a los servicios de tu cuenta.
-        </p>
-      </CardContent>
-    </Card>
+          <p className="text-center text-xs leading-5 text-zinc-400">
+            Al continuar, accedes de forma segura a los servicios de tu cuenta.
+          </p>
+        </CardContent>
+      </Card>
+      <p className="text-center text-sm text-zinc-500">
+        ¿Eres nuevo en Hertz?{" "}
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setRegistroExitoso(false);
+            setRegistrando(true);
+          }}
+          className="font-semibold text-zinc-900 underline decoration-amber-400 decoration-2 underline-offset-4 hover:text-amber-700"
+        >
+          Crea tu cuenta
+        </button>
+      </p>
+    </div>
   );
 }

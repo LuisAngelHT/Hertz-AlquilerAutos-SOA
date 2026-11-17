@@ -1,12 +1,15 @@
 package com.hertz.gateway.filter;
 
 import com.hertz.gateway.exception.ValidacionTokenException;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -16,7 +19,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,22 +28,36 @@ import java.util.Map;
 @Component
 public class JwtValidationFilter implements GlobalFilter, Ordered {
 
-    private static final List<String> RUTAS_PUBLICAS = List.of("/api/v1/auth/login");
+    private static final List<String> RUTAS_PUBLICAS =
+        List.of("/api/v1/auth/login", "/api/v1/cliente/registro");
     private static final ParameterizedTypeReference<Map<String, Object>> MAP_TYPE =
             new ParameterizedTypeReference<>() {
             };
 
     private final WebClient authWebClient;
+    private final String internalSecret;
 
-    public JwtValidationFilter(WebClient authWebClient) {
+    public JwtValidationFilter(WebClient authWebClient,
+                            @Value("${gateway.internal-secret}") String internalSecret) {
         this.authWebClient = authWebClient;
+        this.internalSecret = internalSecret;
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
-        if (RUTAS_PUBLICAS.contains(path)) {
-            return chain.filter(exchange);
+        boolean esPublica = HttpMethod.POST.equals(exchange.getRequest().getMethod())
+                && RUTAS_PUBLICAS.contains(path);
+        if (esPublica) {
+            ServerHttpRequest publica = exchange.getRequest().mutate()
+                    .headers(h -> {
+                        h.remove("X-Usuario");   // el cliente no puede inventar identidad
+                        h.remove("X-Rol");
+                        h.remove("X-Sucursal");
+                        h.set("X-Gateway-Secret", internalSecret);
+                    })
+                    .build();
+            return chain.filter(exchange.mutate().request(publica).build());
         }
 
         String header = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
@@ -57,6 +73,14 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
                             .headers(h -> {
                                 h.set("X-Usuario", String.valueOf(claims.get("correo")));
                                 h.set("X-Rol", String.valueOf(claims.get("rol")));
+                                // Sede del usuario (solo si la tiene). Se borra primero lo que mande el
+                                // cliente, para que nadie pueda inventarse una sucursal.
+                                h.remove("X-Sucursal");
+                                Object sucursal = claims.get("sucursal");
+                                if (sucursal != null && !String.valueOf(sucursal).isBlank()) {
+                                    h.set("X-Sucursal", String.valueOf(sucursal));
+                                }
+                                h.set("X-Gateway-Secret", internalSecret);
                             })
                             .build();
                     return chain.filter(exchange.mutate().request(request).build());

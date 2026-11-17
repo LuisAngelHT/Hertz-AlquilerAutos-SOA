@@ -15,13 +15,13 @@ import java.time.Instant;
 import java.util.Set;
 
 /**
- * Solo acepta solicitudes que vengan del API Gateway (header X-Gateway-Secret)
- * y que traigan un rol válido (header X-Rol).
+ * Solo acepta solicitudes que vengan del API Gateway (X-Gateway-Secret).
+ * Todas exigen un rol válido (X-Rol), salvo el registro público de clientes.
  */
 @Component
 public class GatewayAccessFilter extends OncePerRequestFilter {
 
-    private static final Set<String> ROLES = Set.of("AGENTE", "ADMINISTRADOR", "CLIENTE_WEB");
+    private static final Set<String> ROLES = Set.of("AGENTE", "ADMINISTRADOR", "ADMINISTRADOR_SUCURSAL", "CLIENTE");
 
     private final byte[] secreto;
 
@@ -42,10 +42,15 @@ public class GatewayAccessFilter extends OncePerRequestFilter {
             escribir(response, "ACCESO_NO_AUTORIZADO", "Solo se aceptan solicitudes del API Gateway");
             return;
         }
-        String rol = request.getHeader("X-Rol");
-        if (rol == null || !ROLES.contains(rol)) {
-            escribir(response, "ROL_NO_PERMITIDO", "El rol del usuario no tiene acceso a este servicio");
-            return;
+
+        boolean registroPublico = "POST".equals(request.getMethod())
+                && "/api/v1/cliente/registro".equals(request.getRequestURI());
+        if (!registroPublico) {
+            String rol = request.getHeader("X-Rol");
+            if (rol == null || !ROLES.contains(rol)) {
+                escribir(response, "ROL_NO_PERMITIDO", "El rol del usuario no tiene acceso a este servicio");
+                return;
+            }
         }
         chain.doFilter(request, response);
     }

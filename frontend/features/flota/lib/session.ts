@@ -12,6 +12,8 @@ export interface Sesion {
   expiraEn: string;
   rol: string;
   nombre: string;
+  /** Sede del usuario; null si no tiene (por ejemplo el ADMINISTRADOR general). */
+  sucursal: string | null;
 }
 
 /** Texto crudo de la sesión guardada, o null si no hay (o si el navegador bloquea el storage). */
@@ -47,6 +49,7 @@ export function parseSesion(raw: string | null): Sesion | null {
       expiraEn: s.expiraEn,
       rol: s.rol,
       nombre: s.nombre,
+      sucursal: typeof s.sucursal === "string" && s.sucursal ? s.sucursal : null,
     };
   } catch {
     return null;
@@ -61,7 +64,23 @@ export function cerrarSesion(): void {
   }
 }
 
-/** Solo estos roles pueden cambiar el estado de un vehículo (lo valida también el backend). */
+/** Solo estos roles (AGENTE, ADMINISTRADOR, ADMINISTRADOR_SUCURSAL) pueden cambiar el estado de un vehículo (lo valida también el backend). */
 export function puedeCambiarEstado(rol: string): boolean {
-  return rol === "AGENTE" || rol === "ADMINISTRADOR";
+  return rol === "AGENTE" || rol === "ADMINISTRADOR" || rol === "ADMINISTRADOR_SUCURSAL";
+}
+
+/**
+ * ¿Puede este usuario cambiar el estado de un vehículo de la sucursal indicada?
+ * El ADMINISTRADOR general puede con cualquiera; el AGENTE y el ADMINISTRADOR_SUCURSAL solo con
+ * los de su propia sucursal. El backend aplica la misma regla (esto solo decide qué botones se ven).
+ */
+export function puedeCambiarVehiculo(sesion: Sesion, sucursalVehiculo: string): boolean {
+  if (!puedeCambiarEstado(sesion.rol)) return false;
+  if (sesion.rol === "ADMINISTRADOR") return true;
+  return sesion.sucursal !== null && sesion.sucursal === sucursalVehiculo;
+}
+
+/** Roles de escritura que deben tener una sucursal asignada para poder modificar vehículos. */
+export function requiereSucursal(rol: string): boolean {
+  return puedeCambiarEstado(rol) && rol !== "ADMINISTRADOR";
 }

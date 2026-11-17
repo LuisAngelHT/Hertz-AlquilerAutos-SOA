@@ -96,3 +96,5 @@ where not exists (select 1 from flota.bloqueo_vehiculo where referencia = 'RES-D
 -- select placa, estado from flota.vehiculo;            -- OK
 -- select correo from autenticacion.usuario;            -- ERROR: permission denied
 -- reset role;
+
+-- NOTA: el historial de cambios de estado se crea con db/flota_historial.sql

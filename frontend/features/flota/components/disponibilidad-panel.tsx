@@ -28,6 +28,9 @@ function sumarDias(fecha: Date, dias: number): Date {
   return copia;
 }
 
+// Cuántos vehículos se muestran de entrada; el resto aparece con "Mostrar más".
+const POR_TANDA = 12;
+
 const CAMPO =
   "h-12 w-full rounded-xl border border-zinc-200 bg-zinc-50/60 px-4 text-sm text-zinc-900 outline-none transition-colors focus-visible:border-amber-400 focus-visible:ring-3 focus-visible:ring-amber-300/40 disabled:opacity-50";
 
@@ -50,6 +53,7 @@ export function DisponibilidadPanel({
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<Disponibilidad | null>(null);
+  const [visibles, setVisibles] = useState(POR_TANDA);
 
   async function buscar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,6 +65,7 @@ export function DisponibilidadPanel({
     }
 
     setBuscando(true);
+    setVisibles(POR_TANDA);
     try {
       setResultado(
         await consultarDisponibilidad(sesion, {
@@ -228,8 +233,8 @@ export function DisponibilidadPanel({
                     : "vehículos disponibles"
                 }`}
           </p>
-          <div className="grid gap-4 md:grid-cols-2">
-            {resultado.vehiculos.map((vehiculo) => (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {resultado.vehiculos.slice(0, visibles).map((vehiculo) => (
               <VehiculoCard
                 key={vehiculo.placa}
                 vehiculo={vehiculo}
@@ -240,6 +245,18 @@ export function DisponibilidadPanel({
               />
             ))}
           </div>
+          {resultado.vehiculos.length > visibles && (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setVisibles((v) => v + POR_TANDA)}
+                className="h-10 rounded-xl border-zinc-200 px-5"
+              >
+                Mostrar más ({resultado.vehiculos.length - visibles} restantes)
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </section>
