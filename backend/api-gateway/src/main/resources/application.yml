@@ -17,6 +17,12 @@ spring:
               uri: ${CLIENTE_SERVICE_URL:http://localhost:8081}
               predicates:
                 - Path=/api/v1/cliente/**
+            # SVC-03 Flota: todas las rutas /api/v1/flota/** van a service-flota.
+            # El filtro JwtValidationFilter ya validó el token antes de llegar aquí.
+            - id: service-flota
+              uri: ${FLOTA_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/flota/**
           globalcors:
             cors-configurations:
               '[/**]':
@@ -27,6 +33,12 @@ spring:
 services:
   auth:
     url: ${AUTH_SERVICE_URL:http://localhost:8087}
+
+# Throttling del documento: la consulta de disponibilidad de flota se limita a 200 por minuto
+# para proteger la base de datos. Ver FlotaRateLimitFilter. Si se pasa, el gateway responde 429.
+rate-limit:
+  flota-disponibilidad:
+    por-minuto: ${FLOTA_RATE_LIMIT:200}
 
 management:
   endpoints:
