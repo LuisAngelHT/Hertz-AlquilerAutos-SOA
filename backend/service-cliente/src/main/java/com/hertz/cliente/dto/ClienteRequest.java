@@ -16,5 +16,13 @@ public record ClienteRequest(
         @Size(max = 120) String email,
         @Size(max = 20) String telefono,
         @Size(max = 20) String licenciaConducir,
-        LocalDate vencimientoLicencia) {
+        LocalDate vencimientoLicencia,
+        @NotBlank(message = "La contraseña es obligatoria")
+        @Size(min = 8, max = 72, message = "La contraseña debe tener entre 8 y 72 caracteres") String password) {
+
+    // Evita que la contraseña aparezca si alguien imprime el objeto en un log
+    @Override
+    public String toString() {
+        return "ClienteRequest[tipoDocumento=" + tipoDocumento + ", numeroDocumento=" + numeroDocumento + "]";
+    }
 }

@@ -12,4 +12,5 @@ public interface ClienteRepository extends JpaRepository<Cliente, UUID> {
     Optional<Cliente> findByTipoDocumentoAndNumeroDocumento(TipoDocumento tipoDocumento, String numeroDocumento);
 
     boolean existsByTipoDocumentoAndNumeroDocumento(TipoDocumento tipoDocumento, String numeroDocumento);
+    boolean existsByEmailIgnoreCase(String email);
 }

@@ -1,14 +1,6 @@
 package com.hertz.auth.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-
+import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -20,21 +12,27 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "correo", nullable = false, unique = true, length = 120)
+    @Column(nullable = false, unique = true, length = 120)
     private String correo;
 
-    @Column(name = "nombre", nullable = false, length = 100)
+    @Column(nullable = false, length = 100)
     private String nombre;
 
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "rol", nullable = false, length = 20)
+    @Column(nullable = false, length = 20)
     private Rol rol;
 
-    @Column(name = "activo", nullable = false)
+    @Column(nullable = false)
     private boolean activo;
+
+    @Column(name = "cliente_id")
+    private UUID clienteId;
+
+    @Column(name = "creado_en", insertable = false, updatable = false)
+    private Instant creadoEn;
 
     @Column(name = "ultimo_login")
     private Instant ultimoLogin;
@@ -42,55 +40,24 @@ public class Usuario {
     protected Usuario() {
     }
 
-    public UUID getId() {
-        return id;
-    }
-
-    public String getCorreo() {
-        return correo;
-    }
-
-    public void setCorreo(String correo) {
+    public Usuario(String correo, String nombre, String passwordHash, Rol rol, UUID clienteId) {
         this.correo = correo;
-    }
-
-    public String getNombre() {
-        return nombre;
-    }
-
-    public void setNombre(String nombre) {
         this.nombre = nombre;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
-    }
-
-    public Rol getRol() {
-        return rol;
-    }
-
-    public void setRol(Rol rol) {
         this.rol = rol;
+        this.clienteId = clienteId;
+        this.activo = true;
     }
 
-    public boolean isActivo() {
-        return activo;
-    }
+    public UUID getId() { return id; }
+    public String getCorreo() { return correo; }
+    public String getNombre() { return nombre; }
+    public String getPasswordHash() { return passwordHash; }
+    public Rol getRol() { return rol; }
+    public boolean isActivo() { return activo; }
+    public UUID getClienteId() { return clienteId; }
+    public Instant getCreadoEn() { return creadoEn; }
+    public Instant getUltimoLogin() { return ultimoLogin; }
 
-    public void setActivo(boolean activo) {
-        this.activo = activo;
-    }
-
-    public Instant getUltimoLogin() {
-        return ultimoLogin;
-    }
-
-    public void setUltimoLogin(Instant ultimoLogin) {
-        this.ultimoLogin = ultimoLogin;
-    }
+    public void setUltimoLogin(Instant ultimoLogin) { this.ultimoLogin = ultimoLogin; }
 }

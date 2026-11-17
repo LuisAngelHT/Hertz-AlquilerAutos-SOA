@@ -21,6 +21,9 @@ spring:
 jwt:
   secret: ${JWT_SECRET}
   expiration-minutes: ${JWT_EXPIRATION:60}
+  
+gateway:
+  secret: ${GATEWAY_SECRET}
 
 management:
   endpoints:

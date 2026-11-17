@@ -1,17 +1,22 @@
 package com.hertz.auth.controller;
 
+import com.hertz.auth.dto.CrearUsuarioRequest;
 import com.hertz.auth.dto.LoginRequest;
 import com.hertz.auth.dto.LoginResponse;
 import com.hertz.auth.dto.PerfilResponse;
+import com.hertz.auth.dto.UsuarioCreadoResponse;
 import com.hertz.auth.dto.ValidarTokenRequest;
 import com.hertz.auth.dto.ValidarTokenResponse;
 import com.hertz.auth.service.AuthService;
 import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -37,5 +42,11 @@ public class AuthController {
     @GetMapping("/perfil")
     public PerfilResponse perfil(@RequestHeader(value = "Authorization", required = false) String authorization) {
         return authService.perfil(authorization);
+    }
+
+    @PostMapping("/usuarios")
+    @ResponseStatus(HttpStatus.CREATED)
+    public UsuarioCreadoResponse crearUsuario(@Valid @RequestBody CrearUsuarioRequest request) {
+        return authService.crearUsuarioCliente(request);
     }
 }

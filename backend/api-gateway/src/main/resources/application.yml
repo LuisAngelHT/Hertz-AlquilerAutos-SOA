@@ -16,7 +16,7 @@ spring:
             - id: service-cliente
               uri: ${CLIENTE_SERVICE_URL:http://localhost:8081}
               predicates:
-                - Path=/api/v1/cliente/**
+                - Path=/api/v1/cliente,/api/v1/cliente/**
           globalcors:
             cors-configurations:
               '[/**]':
@@ -27,6 +27,8 @@ spring:
 services:
   auth:
     url: ${AUTH_SERVICE_URL:http://localhost:8087}
+gateway:
+  internal-secret: ${GATEWAY_SECRET}
 
 management:
   endpoints:

@@ -1,6 +1,8 @@
 package com.hertz.auth.exception;
 
 import com.hertz.auth.dto.ErrorResponse;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -32,5 +34,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBody(HttpMessageNotReadableException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of("SOLICITUD_INVALIDA", "El cuerpo de la solicitud no es un JSON válido"));
+    }
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleIntegridad(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of("CORREO_YA_REGISTRADO", "Ya existe una cuenta con ese correo"));
     }
 }

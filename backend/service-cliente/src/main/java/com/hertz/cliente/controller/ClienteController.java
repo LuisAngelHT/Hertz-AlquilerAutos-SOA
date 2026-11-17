@@ -21,29 +21,39 @@ public class ClienteController {
         this.service = service;
     }
 
-    // buscarCliente
+    // buscarCliente: AGENTE y ADMINISTRADOR
     @GetMapping
     public ClienteResponse buscar(@RequestParam TipoDocumento tipoDocumento,
-                                  @RequestParam String numeroDocumento) {
-        return service.buscar(tipoDocumento, numeroDocumento);
+                                  @RequestParam String numeroDocumento,
+                                  @RequestHeader("X-Rol") String rol) {
+        return service.buscar(tipoDocumento, numeroDocumento, rol);
     }
 
     @GetMapping("/{id}")
-    public ClienteResponse obtener(@PathVariable UUID id) {
-        return service.obtener(id);
+    public ClienteResponse obtener(@PathVariable UUID id, @RequestHeader("X-Rol") String rol) {
+        return service.obtener(id, rol);
     }
 
-    // registrarCliente
+    // Registro presencial: AGENTE y ADMINISTRADOR
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ClienteResponse registrar(@Valid @RequestBody ClienteRequest request) {
+    public ClienteResponse registrarPresencial(@Valid @RequestBody ClienteRequest request,
+                                               @RequestHeader("X-Rol") String rol) {
+        return service.registrarPresencial(request, rol);
+    }
+
+    // Autoregistro desde el login: público (el gateway no exige token en esta ruta)
+    @PostMapping("/registro")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ClienteResponse registro(@Valid @RequestBody ClienteRequest request) {
         return service.registrar(request);
     }
 
-    // actualizarCliente
+    // actualizarCliente: AGENTE y ADMINISTRADOR
     @PutMapping("/{id}")
     public ClienteResponse actualizar(@PathVariable UUID id,
-                                      @Valid @RequestBody ActualizarClienteRequest request) {
-        return service.actualizar(id, request);
+                                      @Valid @RequestBody ActualizarClienteRequest request,
+                                      @RequestHeader("X-Rol") String rol) {
+        return service.actualizar(id, request, rol);
     }
 }

@@ -25,6 +25,11 @@ public class AuthException extends RuntimeException {
         return new AuthException("USUARIO_INACTIVO", HttpStatus.FORBIDDEN, "El usuario está inactivo");
     }
 
+    public static AuthException correoYaRegistrado() {
+        return new AuthException("CORREO_YA_REGISTRADO", HttpStatus.CONFLICT,
+                "Ya existe una cuenta con ese correo");
+    }
+
     public static AuthException tokenInvalido() {
         return new AuthException("TOKEN_INVALIDO", HttpStatus.UNAUTHORIZED, "El token no es válido");
     }
