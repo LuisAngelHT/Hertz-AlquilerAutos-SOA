@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import {
   ArrowRight,
   Eye,
@@ -71,10 +72,18 @@ export function LoginForm() {
             Iniciaste sesión como{" "}
             <span className="font-medium text-zinc-800">{sesion.rol}</span>.
           </p>
+          {/* Acceso a la pantalla de gestión de flota (features/flota). */}
+          <Link
+            href="/flota"
+            className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#ffd400] text-sm font-bold text-zinc-950 transition-colors hover:bg-[#f2c900]"
+          >
+            Ir a Flota
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
           <Button
             type="button"
             variant="outline"
-            className="mt-7 h-11 w-full rounded-xl border-zinc-200"
+            className="mt-3 h-11 w-full rounded-xl border-zinc-200"
             onClick={handleLogout}
           >
             Cerrar sesión
