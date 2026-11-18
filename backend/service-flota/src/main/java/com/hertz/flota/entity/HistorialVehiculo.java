@@ -27,7 +27,8 @@ public class HistorialVehiculo {
     private String placa;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "estado_anterior", nullable = false, length = 20)
+    // Es null solo en el alta del vehículo (todavía no tenía estado).
+    @Column(name = "estado_anterior", length = 20)
     private EstadoVehiculo estadoAnterior;
 
     @Enumerated(EnumType.STRING)

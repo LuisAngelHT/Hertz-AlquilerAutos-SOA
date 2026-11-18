@@ -5,7 +5,7 @@ import type { Sesion } from "./session";
  * Cada llamada lleva el token del login en el header Authorization.
  */
 
-export type EstadoVehiculo = "DISPONIBLE" | "ALQUILADO" | "MANTENIMIENTO";
+export type EstadoVehiculo = "DISPONIBLE" | "ALQUILADO" | "MANTENIMIENTO" | "FUERA_DE_SERVICIO";
 
 export interface Vehiculo {
   idVehiculo: string;
@@ -24,10 +24,21 @@ export interface Disponibilidad {
   vehiculos: Vehiculo[];
 }
 
+/** Datos para registrar un vehículo nuevo (solo ADMINISTRADOR general). */
+export interface NuevoVehiculo {
+  placa: string;
+  categoria: string;
+  marca: string;
+  modelo: string;
+  anio: number;
+  sucursal: string;
+}
+
 /** Un cambio de estado del historial: quién lo hizo, cuándo y por qué. */
 export interface CambioHistorial {
   placa: string;
-  estadoAnterior: EstadoVehiculo;
+  /** null en el alta del vehículo (todavía no tenía estado). */
+  estadoAnterior: EstadoVehiculo | null;
   estadoNuevo: EstadoVehiculo;
   usuario: string;
   rol: string;
@@ -39,6 +50,7 @@ export interface FiltroListado {
   estado?: EstadoVehiculo;
   sucursal?: string; // vacío = todas
   texto?: string; // marca o modelo
+  sucursalPrioritaria?: string; // esta sucursal sale primero en la lista (la del usuario)
   pagina?: number; // empieza en 0
   tamano?: number; // vehículos por página (el backend usa 12 y acepta hasta 50)
 }
@@ -83,7 +95,15 @@ function mensajeDeError(codigo: string | undefined, mensaje: string | undefined)
     case "VEHICULO_NO_DISPONIBLE":
       return "El vehículo no está disponible: ya está alquilado o en mantenimiento.";
     case "ROL_NO_AUTORIZADO":
-      return "Tu rol no puede cambiar el estado de un vehículo.";
+      return mensaje ?? "Tu rol no puede realizar esta acción.";
+    case "PLACA_DUPLICADA":
+      return "Ya existe un vehículo con esa placa.";
+    case "VEHICULO_ALQUILADO":
+      return "El vehículo está alquilado: registra primero su devolución para darlo de baja.";
+    case "VEHICULO_CON_RESERVAS":
+      return mensaje ?? "El vehículo tiene reservas pendientes; cancélalas o reasígnalas antes de darlo de baja.";
+    case "TRANSICION_INVALIDA":
+      return mensaje ?? "Ese cambio de estado no es válido.";
     case "SOLICITUD_INVALIDA":
       return mensaje ?? "Revisa los datos ingresados.";
     case "LIMITE_EXCEDIDO":
@@ -165,6 +185,11 @@ export function consultarVehiculo(sesion: Sesion, placa: string): Promise<Vehicu
   return solicitar<Vehiculo>(sesion, `/vehiculos/${encodeURIComponent(placa.trim())}`);
 }
 
+/** POST /api/v1/flota/vehiculos — registra un vehículo nuevo (solo ADMINISTRADOR general). Nace DISPONIBLE. */
+export function crearVehiculo(sesion: Sesion, datos: NuevoVehiculo): Promise<Vehiculo> {
+  return solicitar<Vehiculo>(sesion, "/vehiculos", { method: "POST", body: datos });
+}
+
 /** PUT /api/v1/flota/vehiculos/{placa}/estado — solo AGENTE o ADMINISTRADOR. El motivo es opcional y queda en el historial. */
 export function actualizarEstado(
   sesion: Sesion,
@@ -185,6 +210,7 @@ export function listarVehiculos(sesion: Sesion, filtro: FiltroListado = {}): Pro
   if (filtro.estado) params.set("estado", filtro.estado);
   if (filtro.sucursal) params.set("sucursal", filtro.sucursal);
   if (filtro.texto?.trim()) params.set("texto", filtro.texto.trim());
+  if (filtro.sucursalPrioritaria) params.set("sucursalPrioritaria", filtro.sucursalPrioritaria);
   if (filtro.pagina !== undefined) params.set("pagina", String(filtro.pagina));
   if (filtro.tamano !== undefined) params.set("tamano", String(filtro.tamano));
   const query = params.toString();

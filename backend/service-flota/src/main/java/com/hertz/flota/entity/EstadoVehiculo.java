@@ -10,5 +10,7 @@ public enum EstadoVehiculo {
     /** Está con un cliente (contrato vigente). */
     ALQUILADO,
     /** Fuera de servicio por daño, siniestro o mantenimiento; no aparece como disponible. */
-    MANTENIMIENTO
+    MANTENIMIENTO,
+    /** Dado de baja (vendido, siniestro total, fin de vida útil). No se borra: conserva su historial. Solo lo cambia el ADMINISTRADOR general. */
+    FUERA_DE_SERVICIO
 }

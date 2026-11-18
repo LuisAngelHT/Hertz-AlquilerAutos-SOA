@@ -23,6 +23,7 @@ const ESTADOS: { value: EstadoVehiculo; label: string }[] = [
   { value: "DISPONIBLE", label: "Disponibles" },
   { value: "ALQUILADO", label: "Alquilados" },
   { value: "MANTENIMIENTO", label: "En mantenimiento" },
+  { value: "FUERA_DE_SERVICIO", label: "Fuera de servicio (bajas)" },
 ];
 
 // Vehículos por página: con cientos de vehículos nunca se muestran todos juntos.
@@ -69,7 +70,13 @@ export function ListaPanel({ sesion, puedeEditar, onSesionExpirada }: ListaPanel
   // Se vuelve a pedir al backend cada vez que cambia el filtro aplicado o la página.
   useEffect(() => {
     let activo = true;
-    listarVehiculos(sesion, { ...aplicado, pagina, tamano: POR_PAGINA })
+    // La sucursal del usuario sale primero; luego las demás por orden alfabético.
+    listarVehiculos(sesion, {
+      ...aplicado,
+      sucursalPrioritaria: sesion.sucursal ?? undefined,
+      pagina,
+      tamano: POR_PAGINA,
+    })
       .then((datos) => {
         if (!activo) return;
         setResultado(datos);
@@ -184,7 +191,7 @@ export function ListaPanel({ sesion, puedeEditar, onSesionExpirada }: ListaPanel
                   disabled={buscando}
                   className={CAMPO}
                 >
-                  {ESTADOS.map((e) => (
+                  {ESTADOS.filter((e) => e.value !== "FUERA_DE_SERVICIO" || sesion.rol === "ADMINISTRADOR").map((e) => (
                     <option key={e.value} value={e.value}>
                       {e.label}
                     </option>

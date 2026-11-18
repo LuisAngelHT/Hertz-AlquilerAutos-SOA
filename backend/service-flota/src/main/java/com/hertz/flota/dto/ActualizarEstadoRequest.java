@@ -10,7 +10,7 @@ import jakarta.validation.constraints.Size;
  * del enum, la API responde 400 SOLICITUD_INVALIDA.
  */
 public record ActualizarEstadoRequest(
-        @NotNull(message = "El estado es obligatorio (DISPONIBLE, ALQUILADO o MANTENIMIENTO)")
+        @NotNull(message = "El estado es obligatorio (DISPONIBLE, ALQUILADO, MANTENIMIENTO o FUERA_DE_SERVICIO)")
         EstadoVehiculo estado,
         @Size(max = 200, message = "El motivo no puede pasar de 200 caracteres")
         String motivo) {

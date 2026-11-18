@@ -74,6 +74,13 @@ public class Cliente {
         this.vencimientoLicencia = vencimientoLicencia;
     }
 
+    /** El propio cliente actualiza su contacto y su licencia. */
+    public void actualizarContacto(String telefono, String licenciaConducir, LocalDate vencimientoLicencia) {
+        this.telefono = telefono;
+        this.licenciaConducir = licenciaConducir;
+        this.vencimientoLicencia = vencimientoLicencia;
+    }
+
     @PreUpdate
     void alActualizar() {
         this.actualizadoEn = Instant.now();

@@ -23,6 +23,11 @@ spring:
               uri: ${FLOTA_SERVICE_URL:http://localhost:8083}
               predicates:
                 - Path=/api/v1/flota/**
+            # SVC-02 Reserva: /api/v1/reserva y todo lo que cuelga de ella.
+            - id: service-reserva
+              uri: ${RESERVA_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/reserva,/api/v1/reserva/**
           globalcors:
             cors-configurations:
               '[/**]':
