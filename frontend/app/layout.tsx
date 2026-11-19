@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hertz | Iniciar sesión",
-  description: "Inicia sesión en tu espacio Hertz.",
+  title: "Hertz | Alquiler de autos",
+  description: "Accede a los servicios de alquiler de autos Hertz.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
