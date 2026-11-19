@@ -21,7 +21,8 @@ import java.util.Set;
 @Component
 public class GatewayAccessFilter extends OncePerRequestFilter {
 
-    private static final Set<String> ROLES = Set.of("AGENTE", "ADMINISTRADOR", "ADMINISTRADOR_SUCURSAL", "CLIENTE");
+    private static final Set<String> ROLES = Set.of("AGENTE", "ADMINISTRADOR", "ADMINISTRADOR_SUCURSAL", "CLIENTE",
+            "SERVICIO");   // SERVICIO: rol interno con el que ServicioReserva consulta clientes
 
     private final byte[] secreto;
 

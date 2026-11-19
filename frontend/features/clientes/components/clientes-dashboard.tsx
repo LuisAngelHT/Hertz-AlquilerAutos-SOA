@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
   CarFront,
-  LogOut,
   Search,
   ShieldCheck,
   UserPlus,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CabeceraApp } from "@/components/cabecera-app";
 import {
   clearSession,
   getServerSessionSnapshot,
@@ -19,27 +19,14 @@ import {
   subscribeToSession,
 } from "@/features/auth/lib/auth-session";
 import { ClienteBusqueda } from "@/features/clientes/components/cliente-busqueda";
+import { ClientesLista } from "@/features/clientes/components/clientes-lista";
+import { PortalCliente } from "@/features/clientes/components/portal-cliente";
 import { ClienteRegistroForm } from "@/features/clientes/components/cliente-registro-form";
 
-type VistaClientes = "buscar" | "registrar";
+type VistaClientes = "todos" | "buscar" | "registrar";
 
 function esPersonal(rol: string): boolean {
   return rol === "AGENTE" || rol === "ADMINISTRADOR" || rol === "ADMINISTRADOR_SUCURSAL";
-}
-
-function nombreRol(rol: string): string {
-  switch (rol) {
-    case "ADMINISTRADOR":
-      return "Administrador";
-    case "ADMINISTRADOR_SUCURSAL":
-      return "Administrador de sucursal";
-    case "AGENTE":
-      return "Agente";
-    case "CLIENTE":
-      return "Cliente web";
-    default:
-      return rol;
-  }
 }
 
 export function ClientesDashboard() {
@@ -49,7 +36,8 @@ export function ClientesDashboard() {
     getSessionSnapshot,
     getServerSessionSnapshot,
   );
-  const [vista, setVista] = useState<VistaClientes>("buscar");
+  // Primero se ve la lista completa de clientes; desde ahí se puede buscar uno o registrar otro.
+  const [vista, setVista] = useState<VistaClientes>("todos");
 
   useEffect(() => {
     if (!sesion) {
@@ -84,48 +72,13 @@ export function ClientesDashboard() {
 
   return (
     <main className="min-h-svh bg-[#fafaf9]">
-      <header className="bg-[#111110] text-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8 lg:px-10">
-          <Link href="/clientes" className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-xl bg-[#ffd400] text-lg font-black text-zinc-950">
-              H
-            </span>
-            <span className="text-lg font-black tracking-[0.16em]">HERTZ</span>
-            <span className="hidden border-l border-white/15 pl-3 text-sm text-zinc-400 sm:inline">
-              Portal de clientes
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-3 sm:gap-5">
-            {/* Acceso a la pantalla de flota (features/flota). */}
-            <Link
-              href="/flota"
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/20 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              <CarFront className="size-4" aria-hidden="true" />
-              Flota
-            </Link>
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium text-white">{sesion.nombre}</p>
-              <p className="mt-0.5 text-xs text-zinc-400">
-                {nombreRol(sesion.rol)}
-              </p>
-            </div>
-            <div className="grid size-10 place-items-center rounded-full bg-white/10 text-sm font-semibold text-[#ffd400]">
-              {sesion.nombre.trim().charAt(0).toUpperCase()}
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={cerrarSesion}
-              className="h-10 rounded-xl px-3 text-zinc-300 hover:bg-white/10 hover:text-white"
-            >
-              <LogOut className="size-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Salir</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <CabeceraApp
+        nombre={sesion.nombre}
+        rol={sesion.rol}
+        sucursal={sesion.sucursal}
+        actual="/clientes"
+        onSalir={cerrarSesion}
+      />
 
       {puedeGestionar && (
         <section className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10 lg:px-10">
@@ -151,6 +104,19 @@ export function ClientesDashboard() {
           </div>
 
           <div className="mb-6 flex w-full flex-wrap gap-2 border-b border-zinc-200 pb-3">
+            <Button
+              type="button"
+              variant={vista === "todos" ? "default" : "ghost"}
+              onClick={() => setVista("todos")}
+              className={
+                vista === "todos"
+                  ? "h-10 rounded-xl bg-zinc-950 px-4 text-white hover:bg-zinc-800"
+                  : "h-10 rounded-xl px-4 text-zinc-600"
+              }
+            >
+              <Users className="size-4" aria-hidden="true" />
+              Todos los clientes
+            </Button>
             <Button
               type="button"
               variant={vista === "buscar" ? "default" : "ghost"}
@@ -180,7 +146,9 @@ export function ClientesDashboard() {
           </div>
 
           <div className="mx-auto max-w-5xl">
-            {vista === "buscar" ? (
+            {vista === "todos" ? (
+              <ClientesLista token={sesion.token} onAuthExpired={sesionExpirada} />
+            ) : vista === "buscar" ? (
               <ClienteBusqueda
                 token={sesion.token}
                 onAuthExpired={sesionExpirada}
@@ -194,6 +162,10 @@ export function ClientesDashboard() {
             )}
           </div>
         </section>
+      )}
+
+      {!puedeGestionar && (
+        <PortalCliente sesion={sesion} onAuthExpired={sesionExpirada} />
       )}
     </main>
   );

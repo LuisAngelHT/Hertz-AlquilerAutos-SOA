@@ -2,6 +2,8 @@ package com.hertz.flota.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -13,15 +15,16 @@ import java.util.UUID;
  * Rango de fechas en el que un vehículo está ocupado (por una reserva, un contrato o un
  * mantenimiento). Se guarda en flota.bloqueo_vehiculo.
  *
- * Se usa solo para leer: la consulta de disponibilidad descarta los vehículos que tengan un
- * bloqueo que se cruce con las fechas pedidas. Por ahora los bloqueos se cargan en la base;
- * más adelante los registrará ServicioReserva.
+ * La consulta de disponibilidad descarta los vehículos que tengan un bloqueo que se cruce con
+ * las fechas pedidas. ServicioReserva crea un bloqueo (motivo RESERVA, referencia = id de la
+ * reserva) al confirmar una reserva y lo libera al cancelarla o reprogramarla.
  */
 @Entity
 @Table(name = "bloqueo_vehiculo", schema = "flota")
 public class BloqueoVehiculo {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id")
     private UUID id;
 
@@ -44,6 +47,15 @@ public class BloqueoVehiculo {
     private Instant creadoEn;
 
     protected BloqueoVehiculo() {
+    }
+
+    public BloqueoVehiculo(String placa, LocalDate fechaInicio, LocalDate fechaFin, String motivo, String referencia) {
+        this.placa = placa;
+        this.fechaInicio = fechaInicio;
+        this.fechaFin = fechaFin;
+        this.motivo = motivo;
+        this.referencia = referencia;
+        this.creadoEn = Instant.now();
     }
 
     public UUID getId() { return id; }

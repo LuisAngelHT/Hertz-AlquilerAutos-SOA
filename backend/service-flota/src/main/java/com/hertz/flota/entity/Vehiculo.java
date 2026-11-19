@@ -13,6 +13,7 @@ import java.time.Instant;
  * Un vehículo de la flota. Se guarda en la tabla flota.vehiculo.
  * La placa es la clave y hace de "idVehiculo" en toda la API.
  * No tiene setters: el único cambio permitido es de estado, con {@link #cambiarEstado}.
+ * Se crea con el constructor de alta (solo el ADMINISTRADOR general registra vehículos nuevos).
  */
 @Entity
 @Table(name = "vehiculo", schema = "flota")
@@ -50,6 +51,19 @@ public class Vehiculo {
 
     /** Constructor vacío que exige JPA; no se usa desde el código. */
     protected Vehiculo() {
+    }
+
+    /** Alta de un vehículo nuevo: nace DISPONIBLE. Los datos ya vienen validados por FlotaService. */
+    public Vehiculo(String placa, String categoria, String marca, String modelo, short anio, String sucursal) {
+        this.placa = placa;
+        this.categoria = categoria;
+        this.marca = marca;
+        this.modelo = modelo;
+        this.anio = anio;
+        this.sucursal = sucursal;
+        this.estado = EstadoVehiculo.DISPONIBLE;
+        this.creadoEn = Instant.now();
+        this.actualizadoEn = this.creadoEn;
     }
 
     public String getPlaca() { return placa; }

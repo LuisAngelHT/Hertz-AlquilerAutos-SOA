@@ -38,6 +38,21 @@ public class ClienteException extends RuntimeException {
                 "Ya existe una cuenta con ese correo");
     }
 
+    public static ClienteException menorDeEdad() {
+        return new ClienteException("CLIENTE_MENOR_DE_EDAD", HttpStatus.BAD_REQUEST,
+                "El cliente debe ser mayor de 18 años para alquilar un vehículo");
+    }
+
+    public static ClienteException licenciaVencida() {
+        return new ClienteException("LICENCIA_VENCIDA", HttpStatus.BAD_REQUEST,
+                "La licencia de conducir está vencida; ingresa una vigente");
+    }
+
+    public static ClienteException soloCliente() {
+        return new ClienteException("ROL_NO_PERMITIDO", HttpStatus.FORBIDDEN,
+                "Solo un cliente puede consultar o editar su propio perfil");
+    }
+
     public static ClienteException servicioAuthNoDisponible() {
         return new ClienteException("SERVICIO_AUTH_NO_DISPONIBLE", HttpStatus.SERVICE_UNAVAILABLE,
                 "No se pudo crear la cuenta: el servicio de autenticación no está disponible");
