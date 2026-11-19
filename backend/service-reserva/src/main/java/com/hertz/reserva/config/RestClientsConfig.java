@@ -10,7 +10,7 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 
 /**
- * Clientes HTTP hacia ServicioFlota y ServicioCliente. Llaman directo al servicio (no por el
+ * Clientes HTTP hacia ServicioFlota, ServicioCliente y ServicioContrato. Llaman directo al servicio (no por el
  * gateway) con el secreto compartido y el rol interno SERVICIO. Los tiempos de espera son
  * generosos porque en Render un servicio dormido tarda en arrancar; la reserva nunca queda
  * colgada: pasado el límite responde 503 SERVICIO_NO_DISPONIBLE.
@@ -43,6 +43,12 @@ public class RestClientsConfig {
     @Bean
     public RestClient clienteRestClient(@Value("${services.cliente.url}") String url,
                                         @Value("${gateway.secret}") String secreto) {
+        return crear(url, secreto);
+    }
+
+    @Bean
+    public RestClient contratoRestClient(@Value("${services.contrato.url}") String url,
+                                         @Value("${gateway.secret}") String secreto) {
         return crear(url, secreto);
     }
 }

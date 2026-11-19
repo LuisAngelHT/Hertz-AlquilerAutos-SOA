@@ -32,6 +32,10 @@ spring:
               uri: ${INCIDENCIA_SERVICE_URL:http://localhost:8085}
               predicates:
                 - Path=/api/v1/incidencia,/api/v1/incidencia/**
+            - id: service-contrato
+              uri: ${CONTRATO_SERVICE_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/v1/contrato,/api/v1/contrato/**
           globalcors:
             cors-configurations:
               '[/**]':

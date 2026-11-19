@@ -9,13 +9,13 @@ interface CabeceraAppProps {
   nombre: string;
   rol: string;
   sucursal?: string | null;
-  /** Ruta de la pantalla actual ("/clientes", "/reservas" o "/flota"): se resalta en el menú. */
-  actual: "/clientes" | "/reservas" | "/flota";
+  /** Ruta actual: se resalta en el menú. */
+  actual: "/clientes" | "/reservas" | "/flota" | "/incidencias" | "/contratos";
   onSalir: () => void;
 }
 
 interface Enlace {
-  ruta: "/clientes" | "/reservas" | "/flota";
+  ruta: "/clientes" | "/reservas" | "/flota" | "/incidencias" | "/contratos";
   etiqueta: string;
 }
 
@@ -32,11 +32,16 @@ function enlacesDe(rol: string): Enlace[] {
       { ruta: "/reservas", etiqueta: "Mis reservas" },
     ];
   }
-  return [
+  const enlaces: Enlace[] = [
     { ruta: "/clientes", etiqueta: "Clientes" },
     { ruta: "/reservas", etiqueta: "Reservas" },
     { ruta: "/flota", etiqueta: "Flota" },
   ];
+  if (["AGENTE", "ADMINISTRADOR", "ADMINISTRADOR_SUCURSAL"].includes(rol)) {
+    enlaces.push({ ruta: "/contratos", etiqueta: "Contratos" });
+    enlaces.push({ ruta: "/incidencias", etiqueta: "Incidencias" });
+  }
+  return enlaces;
 }
 
 function nombreDelRol(rol: string): string {

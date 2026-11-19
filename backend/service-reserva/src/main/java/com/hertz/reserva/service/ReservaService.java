@@ -2,6 +2,7 @@ package com.hertz.reserva.service;
 
 import com.hertz.reserva.client.ClienteClient;
 import com.hertz.reserva.client.ClienteClient.ClienteInfo;
+import com.hertz.reserva.client.ContratoClient;
 import com.hertz.reserva.client.FlotaClient;
 import com.hertz.reserva.dto.HistorialReservaResponse;
 import com.hertz.reserva.dto.ModificarReservaRequest;
@@ -88,18 +89,20 @@ public class ReservaService {
     private final HistorialReservaRepository historial;
     private final FlotaClient flota;
     private final ClienteClient clientes;
+    private final ContratoClient contratos;
     private final TransactionTemplate tx;
     private final Clock reloj;
     private final int maxDias;
 
     public ReservaService(ReservaRepository reservas, HistorialReservaRepository historial,
-                          FlotaClient flota, ClienteClient clientes,
+                          FlotaClient flota, ClienteClient clientes, ContratoClient contratos,
                           PlatformTransactionManager transacciones, Clock reloj,
                           @Value("${reserva.max-dias:60}") int maxDias) {
         this.reservas = reservas;
         this.historial = historial;
         this.flota = flota;
         this.clientes = clientes;
+        this.contratos = contratos;
         this.tx = new TransactionTemplate(transacciones);
         this.reloj = reloj;
         this.maxDias = maxDias;
@@ -228,12 +231,12 @@ public class ReservaService {
         // Registrar la devolución (FINALIZADA) también lo puede hacer la sede donde se devuelve el vehículo.
         autorizarEscritura(reserva, actor, cambios.estado() == EstadoReserva.FINALIZADA);
 
-        boolean cambiaEstado = cambios.estado() != null && cambios.estado() != reserva.getEstado();
+        boolean solicitaEstado = cambios.estado() != null;
         boolean cambiaDatos = cambios.categoria() != null || cambios.fechaInicio() != null || cambios.fechaFin() != null;
-        if (cambiaEstado && cambiaDatos) {
+        if (solicitaEstado && cambiaDatos) {
             throw ReservaException.solicitudInvalida("Cambia las fechas/categoria o el estado, pero no ambos a la vez");
         }
-        if (cambiaEstado) {
+        if (solicitaEstado) {
             return cambiarEstado(reserva, cambios.estado(), cambios.motivo(), actor);
         }
         if (!cambiaDatos) {
@@ -256,6 +259,9 @@ public class ReservaService {
         if (ROL_CLIENTE.equals(rol)) {
             throw ReservaException.rolNoAutorizado("El cliente solo puede cancelar su reserva");
         }
+        if (reserva.getEstado() == nuevo) {
+            return sincronizarContrato(reserva, nuevo);
+        }
         if (!reserva.getEstado().puedePasarA(nuevo)) {
             throw ReservaException.transicionInvalida(
                     "Una reserva " + reserva.getEstado() + " no puede pasar a " + nuevo);
@@ -266,7 +272,22 @@ public class ReservaService {
         if (nuevo == EstadoReserva.FINALIZADA) {
             liberarSinFallar(reserva.getId());   // el vehículo volvió: que quede libre para otras reservas
         }
+        if (nuevo == EstadoReserva.EN_CURSO) {
+            contratos.crear(reserva.getId());
+        } else if (nuevo == EstadoReserva.FINALIZADA) {
+            contratos.finalizar(reserva.getId());
+        }
         return respuesta;
+    }
+
+    private ReservaResponse sincronizarContrato(Reserva reserva, EstadoReserva estado) {
+        if (estado == EstadoReserva.EN_CURSO) {
+            contratos.crear(reserva.getId());
+        } else if (estado == EstadoReserva.FINALIZADA) {
+            liberarSinFallar(reserva.getId());
+            contratos.finalizar(reserva.getId());
+        }
+        return ReservaResponse.de(reserva);
     }
 
     private ReservaResponse reprogramar(Reserva reserva, ModificarReservaRequest cambios, Actor actor) {

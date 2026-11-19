@@ -2,6 +2,7 @@ package com.hertz.reserva.service;
 
 import com.hertz.reserva.client.ClienteClient;
 import com.hertz.reserva.client.ClienteClient.ClienteInfo;
+import com.hertz.reserva.client.ContratoClient;
 import com.hertz.reserva.client.FlotaClient;
 import com.hertz.reserva.client.FlotaClient.Apartado;
 import com.hertz.reserva.dto.ModificarReservaRequest;
@@ -63,6 +64,7 @@ class ReservaServiceTest {
     private HistorialReservaRepository historial;
     private FlotaClient flota;
     private ClienteClient clientes;
+    private ContratoClient contratos;
     private ReservaService service;
 
     @BeforeEach
@@ -71,8 +73,9 @@ class ReservaServiceTest {
         historial = Mockito.mock(HistorialReservaRepository.class);
         flota = Mockito.mock(FlotaClient.class);
         clientes = Mockito.mock(ClienteClient.class);
+        contratos = Mockito.mock(ContratoClient.class);
         Clock reloj = Clock.fixed(HOY.atStartOfDay(ZoneId.of("America/Lima")).toInstant(), ZoneId.of("America/Lima"));
-        service = new ReservaService(reservas, historial, flota, clientes,
+        service = new ReservaService(reservas, historial, flota, clientes, contratos,
                 Mockito.mock(PlatformTransactionManager.class), reloj, 60);
 
         when(reservas.save(any(Reserva.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -254,6 +257,7 @@ class ReservaServiceTest {
         Reserva r = reserva(EstadoReserva.CONFIRMADA);
         var resp = service.modificar(r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA);
         assertEquals(EstadoReserva.EN_CURSO, resp.estado());
+        verify(contratos).crear(r.getId());
         verify(flota, never()).liberar(any());   // el vehiculo sigue apartado mientras esta en curso
     }
 
@@ -271,6 +275,28 @@ class ReservaServiceTest {
         var resp = service.modificar(r.getId(), cambioEstado(EstadoReserva.FINALIZADA), ADMIN);
         assertEquals(EstadoReserva.FINALIZADA, resp.estado());
         verify(flota).liberar(r.getId().toString());
+        verify(contratos).finalizar(r.getId());
+    }
+
+    @Test
+    void repetirCheckOutReintentaCrearElContratoSinCambiarLaReserva() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        service.modificar(r.getId(), cambioEstado(EstadoReserva.EN_CURSO), ADMIN);
+        verify(contratos).crear(r.getId());
+        verify(reservas, never()).save(any());
+    }
+
+    @Test
+    void repetirCheckOutCompletaLaCreacionDelContratoSiElPrimerIntentoFallo() {
+        Reserva r = reserva(EstadoReserva.CONFIRMADA);
+        doThrow(ReservaException.servicioNoDisponible("ServicioContrato", "intenta nuevamente"))
+                .doNothing().when(contratos).crear(r.getId());
+
+        assertEquals("SERVICIO_NO_DISPONIBLE", error(() -> service.modificar(
+                r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA)).getCodigo());
+        assertEquals(EstadoReserva.EN_CURSO,
+                service.modificar(r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA).estado());
+        verify(contratos, times(2)).crear(r.getId());
     }
 
     @Test

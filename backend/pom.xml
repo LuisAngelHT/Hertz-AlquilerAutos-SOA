@@ -15,5 +15,7 @@
         <module>service-reserva</module>
         <module>api-gateway</module>
         <module>service-cliente</module>
+        <module>service-incidencia</module>
+        <module>service-contrato</module>
     </modules>
 </project>

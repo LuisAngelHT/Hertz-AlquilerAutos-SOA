@@ -37,6 +37,8 @@ services:
     url: ${FLOTA_SERVICE_URL:http://localhost:8083}
   cliente:
     url: ${CLIENTE_SERVICE_URL:http://localhost:8081}
+  contrato:
+    url: ${CONTRATO_SERVICE_URL:http://localhost:8086}
 
 # Reglas de negocio ajustables.
 reserva:
