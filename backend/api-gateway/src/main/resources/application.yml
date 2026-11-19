@@ -28,6 +28,10 @@ spring:
               uri: ${RESERVA_SERVICE_URL:http://localhost:8084}
               predicates:
                 - Path=/api/v1/reserva,/api/v1/reserva/**
+            - id: service-incidencia
+              uri: ${INCIDENCIA_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/incidencia,/api/v1/incidencia/**
           globalcors:
             cors-configurations:
               '[/**]':
