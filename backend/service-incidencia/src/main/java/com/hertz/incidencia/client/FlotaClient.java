@@ -47,8 +47,25 @@ public class FlotaClient {
         try {
             restClient.put()
                     .uri("/api/v1/flota/vehiculos/{placa}/estado", placa)
+                    .header("X-Rol", "SERVICIO")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("estado", "MANTENIMIENTO", "motivo", motivo))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientResponseException ex) {
+            throw traducir(ex);
+        } catch (RestClientException ex) {
+            throw IncidenciaException.servicioNoDisponible("ServicioFlota");
+        }
+    }
+
+    public void pasarADisponible(String placa, String motivo) {
+        try {
+            restClient.put()
+                    .uri("/api/v1/flota/vehiculos/{placa}/estado", placa)
+                    .header("X-Rol", "SERVICIO")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("estado", "DISPONIBLE", "motivo", motivo))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientResponseException ex) {

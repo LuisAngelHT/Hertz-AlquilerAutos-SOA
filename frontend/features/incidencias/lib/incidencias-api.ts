@@ -1,5 +1,6 @@
 import { ApiRequestError, requestJson } from "@/lib/api-client";
 import type {
+  CierreIncidencia,
   EstadoIncidencia,
   NuevaIncidencia,
   PaginaIncidencias,
@@ -21,7 +22,7 @@ export function mensajeErrorIncidencia(cause: unknown): string {
     case "VEHICULO_NO_ENCONTRADO":
       return "No se encontró un vehículo con esa placa.";
     case "SUCURSAL_NO_AUTORIZADA":
-      return "Solo puedes registrar o consultar incidencias de vehículos de tu sucursal.";
+      return "Solo puedes operar con incidencias y vehículos de tu sucursal.";
     case "INCIDENCIA_NO_ENCONTRADA":
       return "No se encontró la incidencia solicitada.";
     case "SERVICIO_NO_DISPONIBLE":
@@ -66,4 +67,17 @@ export function registrarIncidencia(
     headers: authHeaders(token),
     body: JSON.stringify(request),
   });
+}
+
+export function cerrarIncidencia(
+  token: string,
+  idIncidencia: string,
+): Promise<CierreIncidencia> {
+  return requestJson(
+    `/api/v1/incidencia/${encodeURIComponent(idIncidencia)}/cerrar`,
+    {
+      method: "PUT",
+      headers: authHeaders(token),
+    },
+  );
 }

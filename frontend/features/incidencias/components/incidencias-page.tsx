@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, LoaderCircle } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { CabeceraApp } from "@/components/cabecera-app";
 import { cerrarSesion } from "@/features/flota/lib/session";
 import { notificarCambioSesion, useSesion } from "@/features/flota/lib/use-session";
@@ -83,10 +84,10 @@ export function IncidenciasPage() {
             </div>
 
             {registro && (
-              <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <AutoDismissFeedback key={registro.idIncidencia} role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                 Incidencia registrada para el vehículo {registro.idVehiculo}. Estado: {registro.estado}.
                 {" "}El vehículo pasó a {registro.estadoVehiculo}.
-              </div>
+              </AutoDismissFeedback>
             )}
 
             <div role="tablist" aria-label="Incidencias" className="mb-6 flex gap-2 border-b border-zinc-200">
@@ -118,6 +119,7 @@ export function IncidenciasPage() {
               <IncidenciasLista
                 sesion={sesion}
                 version={version}
+                onCerrada={() => setVersion((actual) => actual + 1)}
                 onSesionExpirada={salir}
               />
             ) : (

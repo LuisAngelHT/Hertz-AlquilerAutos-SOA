@@ -44,7 +44,9 @@ public class RestClientConfig {
             for (String cabecera : List.of("X-Rol", "X-Usuario", "X-Sucursal")) {
                 String valor = atributos.getRequest().getHeader(cabecera);
                 if (valor != null && !valor.isBlank()) {
-                    request.getHeaders().set(cabecera, valor);
+                    if (request.getHeaders().getFirst(cabecera) == null) {
+                        request.getHeaders().set(cabecera, valor);
+                    }
                 }
             }
         }

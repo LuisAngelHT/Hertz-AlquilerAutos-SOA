@@ -1,7 +1,26 @@
-import { CalendarClock, CarFront, CircleDollarSign, MapPin, UserRound } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
+import {
+  CalendarClock,
+  CarFront,
+  CheckCircle2,
+  CircleDollarSign,
+  LoaderCircle,
+  MapPin,
+  UserRound,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import type { Sesion } from "@/features/flota/lib/session";
+import {
+  cerrarIncidencia,
+  mensajeErrorIncidencia,
+} from "@/features/incidencias/lib/incidencias-api";
 import { etiquetaSucursal } from "@/features/flota/lib/constants";
 import type { Incidencia } from "@/features/incidencias/types/incidencia";
+import { ApiRequestError } from "@/lib/api-client";
 
 const TIPO_ETIQUETA: Record<Incidencia["tipo"], string> = {
   "DAÑO": "Daño",
@@ -19,7 +38,46 @@ function formatoFecha(fecha: string): string {
       }).format(valor);
 }
 
-export function IncidenciaCard({ incidencia }: { incidencia: Incidencia }) {
+interface IncidenciaCardProps {
+  incidencia: Incidencia;
+  sesion: Sesion;
+  onCerrada: () => void;
+  onSesionExpirada: () => void;
+}
+
+export function IncidenciaCard({
+  incidencia,
+  sesion,
+  onCerrada,
+  onSesionExpirada,
+}: IncidenciaCardProps) {
+  const [cerrando, setCerrando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mensaje, setMensaje] = useState<string | null>(null);
+
+  async function cerrar() {
+    setCerrando(true);
+    setError(null);
+    setMensaje(null);
+    try {
+      const resultado = await cerrarIncidencia(sesion.token, incidencia.idIncidencia);
+      setMensaje(
+        resultado.estadoVehiculo === "MANTENIMIENTO"
+          ? "Incidencia cerrada; el vehículo permanece en mantenimiento porque tiene otra incidencia abierta."
+          : `Incidencia cerrada; vehículo ${resultado.estadoVehiculo.toLowerCase()}.`,
+      );
+      onCerrada();
+    } catch (cause) {
+      if (cause instanceof ApiRequestError && cause.status === 401) {
+        onSesionExpirada();
+        return;
+      }
+      setError(mensajeErrorIncidencia(cause));
+    } finally {
+      setCerrando(false);
+    }
+  }
+
   return (
     <Card className="rounded-2xl border-0 bg-white shadow-[0_14px_44px_-30px_rgba(24,24,27,0.35)] ring-1 ring-zinc-200/80">
       <CardContent className="space-y-4 p-5">
@@ -95,6 +153,31 @@ export function IncidenciaCard({ incidencia }: { incidencia: Incidencia }) {
           <p className="border-t border-zinc-100 pt-3 text-xs text-zinc-500">
             Contrato: <span className="font-mono">{incidencia.idContrato}</span>
           </p>
+        )}
+        {error && (
+          <AutoDismissFeedback key={error} role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </AutoDismissFeedback>
+        )}
+        {mensaje && (
+          <AutoDismissFeedback key={mensaje} role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {mensaje}
+          </AutoDismissFeedback>
+        )}
+        {incidencia.estado === "ABIERTA" && (
+          <Button
+            type="button"
+            disabled={cerrando}
+            onClick={cerrar}
+            className="h-10 rounded-xl bg-emerald-600 px-4 font-semibold text-white hover:bg-emerald-700"
+          >
+            {cerrando ? (
+              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+            )}
+            Cerrar incidencia
+          </Button>
         )}
       </CardContent>
     </Card>

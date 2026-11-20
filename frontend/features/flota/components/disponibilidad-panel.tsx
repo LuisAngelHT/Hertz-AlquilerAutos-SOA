@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { CalendarDays, LoaderCircle, Search } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -52,12 +53,14 @@ export function DisponibilidadPanel({
   const [fechaFin, setFechaFin] = useState(fechaISO(sumarDias(hoy, 3)));
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorTemporal, setErrorTemporal] = useState(false);
   const [resultado, setResultado] = useState<Disponibilidad | null>(null);
   const [visibles, setVisibles] = useState(POR_TANDA);
 
   async function buscar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setErrorTemporal(false);
 
     if (fechaFin < fechaInicio) {
       setError("La fecha de fin no puede ser anterior a la fecha de inicio.");
@@ -81,6 +84,7 @@ export function DisponibilidadPanel({
         return;
       }
       setResultado(null);
+      setErrorTemporal(true);
       setError(cause instanceof Error ? cause.message : "No se pudo consultar la disponibilidad.");
     } finally {
       setBuscando(false);
@@ -212,12 +216,15 @@ export function DisponibilidadPanel({
           </form>
 
           {error && (
-            <div
-              role="alert"
-              className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700"
-            >
-              {error}
-            </div>
+            errorTemporal ? (
+              <AutoDismissFeedback key={error} role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
+                {error}
+              </AutoDismissFeedback>
+            ) : (
+              <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
+                {error}
+              </div>
+            )
           )}
         </CardContent>
       </Card>

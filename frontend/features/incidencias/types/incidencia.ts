@@ -42,3 +42,10 @@ export interface RegistroIncidencia {
   estadoVehiculo: string;
   idVehiculo: string;
 }
+
+export interface CierreIncidencia {
+  idIncidencia: string;
+  estado: EstadoIncidencia;
+  estadoVehiculo: string;
+  idVehiculo: string;
+}

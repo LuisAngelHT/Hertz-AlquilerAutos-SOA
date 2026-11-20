@@ -74,4 +74,8 @@ public class Incidencia {
     public EstadoIncidencia getEstado() { return estado; }
     public String getRegistradaPor() { return registradaPor; }
     public Instant getCreadoEn() { return creadoEn; }
+
+    public void cerrar() {
+        this.estado = EstadoIncidencia.CERRADA;
+    }
 }

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { LoaderCircle, Search } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -97,12 +98,13 @@ export function BuscarPlacaPanel({
           </form>
 
           {error && (
-            <div
+            <AutoDismissFeedback
+              key={error}
               role="alert"
               className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700"
             >
               {error}
-            </div>
+            </AutoDismissFeedback>
           )}
         </CardContent>
       </Card>

@@ -33,7 +33,8 @@ import java.util.regex.Pattern;
  *
  * Reglas:
  *  - Un vehículo solo pasa a ALQUILADO si está DISPONIBLE.
- *  - Solo AGENTE, ADMINISTRADOR o ADMINISTRADOR_SUCURSAL pueden cambiar el estado.
+ *  - El personal cambia estados operativos; las transiciones de mantenimiento las controla Incidencia.
+ *  - Solo AGENTE, ADMINISTRADOR o ADMINISTRADOR_SUCURSAL pueden cambiar estados operativos.
  *  - Solo el ADMINISTRADOR general registra vehículos nuevos, los da de baja (FUERA_DE_SERVICIO) y los reactiva.
  *    La baja no se permite si el vehículo está alquilado o tiene reservas pendientes.
  *  - El ADMINISTRADOR general cambia vehículos de cualquier sucursal; el AGENTE y el
@@ -60,7 +61,6 @@ public class FlotaService {
 
     // Este rol puede modificar cualquier sucursal. Los demás roles de escritura, solo la suya.
     private static final String ROL_GENERAL = "ADMINISTRADOR";
-
     private static final Set<String> ROLES_ESCRITURA = Set.of("AGENTE", "ADMINISTRADOR", "ADMINISTRADOR_SUCURSAL");
 
     private final VehiculoRepository vehiculos;
@@ -132,27 +132,38 @@ public class FlotaService {
     /**
      * Cambia el estado de un vehículo. Orden de las validaciones:
      * 1) el rol puede escribir (si no, 403), 2) el vehículo existe (si no, 404),
-     * 3) para ALQUILADO debe estar DISPONIBLE (si no, 409). Volver a DISPONIBLE o pasar a
-     * MANTENIMIENTO se permite desde cualquier estado.
+     * 3) MANTENIMIENTO y su salida solo pueden gestionarse desde Incidencias.
      * El cambio y su registro en el historial se guardan en la misma transacción: o se
      * guardan los dos o ninguno.
      */
     @Transactional
     public VehiculoResponse actualizarEstado(String placa, EstadoVehiculo nuevoEstado, String rol,
                                              String usuario, String sucursalUsuario, String motivo) {
-        if (rol == null || !ROLES_ESCRITURA.contains(rol.trim().toUpperCase())) {
+        String rolNormalizado = rol == null ? "" : rol.trim().toUpperCase();
+        boolean esServicio = ROL_SERVICIO.equals(rolNormalizado);
+        if (!esServicio && !ROLES_ESCRITURA.contains(rolNormalizado)) {
+            throw FlotaException.rolNoAutorizado();
+        }
+        if (esServicio && nuevoEstado != EstadoVehiculo.MANTENIMIENTO
+                && nuevoEstado != EstadoVehiculo.DISPONIBLE) {
             throw FlotaException.rolNoAutorizado();
         }
         Vehiculo vehiculo = buscar(placa);
+        if (!esServicio && (nuevoEstado == EstadoVehiculo.MANTENIMIENTO
+                || (vehiculo.getEstado() == EstadoVehiculo.MANTENIMIENTO
+                    && nuevoEstado != EstadoVehiculo.MANTENIMIENTO))) {
+            throw FlotaException.transicionInvalida(
+                    "Los cambios hacia o desde MANTENIMIENTO se gestionan desde Incidencias");
+        }
         // Dar de baja, o reactivar un vehículo dado de baja, solo lo hace el ADMINISTRADOR general.
         boolean tocaBaja = nuevoEstado == EstadoVehiculo.FUERA_DE_SERVICIO
                 || vehiculo.getEstado() == EstadoVehiculo.FUERA_DE_SERVICIO;
-        if (tocaBaja && !ROL_GENERAL.equals(rol.trim().toUpperCase())) {
+        if (tocaBaja && !ROL_GENERAL.equals(rolNormalizado)) {
             throw FlotaException.soloAdministradorGeneral();
         }
         // Fuera del ADMINISTRADOR general, solo se modifican vehículos de la propia sucursal.
         // Sin sucursal asignada no se puede comprobar, así que también se rechaza.
-        if (!ROL_GENERAL.equals(rol.trim().toUpperCase())
+        if (!esServicio && !ROL_GENERAL.equals(rolNormalizado)
                 && (vacio(sucursalUsuario)
                     || !sucursalUsuario.trim().equalsIgnoreCase(vehiculo.getSucursal()))) {
             throw FlotaException.sucursalNoAutorizada(vehiculo.getPlaca(), vehiculo.getSucursal());
@@ -171,7 +182,7 @@ public class FlotaService {
         vehiculo.cambiarEstado(nuevoEstado);
         Vehiculo guardado = vehiculos.save(vehiculo);
         historial.save(new HistorialVehiculo(guardado.getPlaca(), estadoAnterior, nuevoEstado,
-                vacio(usuario) ? "DESCONOCIDO" : usuario.trim(), rol.trim().toUpperCase(),
+                vacio(usuario) ? "DESCONOCIDO" : usuario.trim(), rolNormalizado,
                 vacio(motivo) ? null : motivo.trim()));
         return VehiculoResponse.de(guardado);
     }

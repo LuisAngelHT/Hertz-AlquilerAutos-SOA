@@ -44,6 +44,7 @@ export function listarContratos(
   if (filtro.estado) params.set("estado", filtro.estado);
 
   return requestJson(`/api/v1/contrato?${params.toString()}`, {
+    cache: "no-store",
     headers: { Authorization: `Bearer ${token}` },
   });
 }

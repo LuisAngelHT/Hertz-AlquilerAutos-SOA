@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Search, UserRoundSearch } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -141,12 +142,13 @@ export function ClienteBusqueda({
           </form>
 
           {error && (
-            <div
+            <AutoDismissFeedback
+              key={error}
               role="alert"
               className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
             >
               {error}
-            </div>
+            </AutoDismissFeedback>
           )}
         </CardContent>
       </Card>

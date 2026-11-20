@@ -2,6 +2,7 @@ package com.hertz.incidencia.service;
 
 import com.hertz.incidencia.client.FlotaClient;
 import com.hertz.incidencia.client.VehiculoInfo;
+import com.hertz.incidencia.dto.CierreIncidenciaResponse;
 import com.hertz.incidencia.dto.IncidenciaRequest;
 import com.hertz.incidencia.dto.IncidenciaResponse;
 import com.hertz.incidencia.dto.PaginaIncidenciasResponse;
@@ -96,6 +97,38 @@ public class IncidenciaService {
             throw IncidenciaException.incidenciaNoEncontrada();   // fuera de su sede: como si no existiera
         }
         return aRespuesta(incidencia);
+    }
+
+    public CierreIncidenciaResponse cerrar(UUID id, String sucursalUsuario) {
+        Incidencia incidencia = repository.findById(id)
+                .orElseThrow(IncidenciaException::incidenciaNoEncontrada);
+        if (restringido(sucursalUsuario)
+                && !incidencia.getSucursal().equalsIgnoreCase(sucursalUsuario.trim())) {
+            throw IncidenciaException.incidenciaNoEncontrada();
+        }
+
+        if (incidencia.getEstado() != EstadoIncidencia.CERRADA) {
+            incidencia.cerrar();
+            repository.save(incidencia);
+        }
+
+        boolean quedanAbiertas = repository.existsByPlacaAndEstadoAndIdNot(
+                incidencia.getPlaca(), EstadoIncidencia.ABIERTA, id);
+        VehiculoInfo vehiculo = flotaClient.obtenerVehiculo(incidencia.getPlaca());
+        String estadoVehiculo = vehiculo.estado();
+
+        if (quedanAbiertas && !MANTENIMIENTO.equals(estadoVehiculo)) {
+            flotaClient.pasarAMantenimiento(incidencia.getPlaca(),
+                    "Hay otra incidencia abierta para " + incidencia.getPlaca());
+            estadoVehiculo = MANTENIMIENTO;
+        } else if (!quedanAbiertas && MANTENIMIENTO.equals(estadoVehiculo)) {
+            flotaClient.pasarADisponible(incidencia.getPlaca(),
+                    "Incidencia " + incidencia.getId() + " cerrada");
+            estadoVehiculo = "DISPONIBLE";
+        }
+
+        return new CierreIncidenciaResponse(
+                incidencia.getId(), incidencia.getEstado(), estadoVehiculo, incidencia.getPlaca());
     }
 
     private boolean restringido(String sucursalUsuario) {

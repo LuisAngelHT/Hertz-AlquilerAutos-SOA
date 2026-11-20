@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CarFront, History, LoaderCircle, MapPin } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -49,17 +50,12 @@ const ACCIONES: Record<
 > = {
   DISPONIBLE: [
     { destino: "ALQUILADO", etiqueta: "Alquilar", principal: true },
-    { destino: "MANTENIMIENTO", etiqueta: "Enviar a mantenimiento" },
     { destino: "FUERA_DE_SERVICIO", etiqueta: "Dar de baja" },
   ],
   ALQUILADO: [
     { destino: "DISPONIBLE", etiqueta: "Registrar devolución", principal: true },
-    { destino: "MANTENIMIENTO", etiqueta: "Enviar a mantenimiento" },
   ],
-  MANTENIMIENTO: [
-    { destino: "DISPONIBLE", etiqueta: "Marcar disponible", principal: true },
-    { destino: "FUERA_DE_SERVICIO", etiqueta: "Dar de baja" },
-  ],
+  MANTENIMIENTO: [],
   FUERA_DE_SERVICIO: [
     { destino: "DISPONIBLE", etiqueta: "Reactivar vehículo", principal: true },
   ],
@@ -204,12 +200,13 @@ export function VehiculoCard({
         </dl>
 
         {error && (
-          <div
+          <AutoDismissFeedback
+            key={error}
             role="alert"
             className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-5 text-red-700"
           >
             {error}
-          </div>
+          </AutoDismissFeedback>
         )}
 
         {puedeEditar && !puedeActuar && (
@@ -218,7 +215,13 @@ export function VehiculoCard({
           </p>
         )}
 
-        {puedeActuar && acciones.length === 0 && (
+        {puedeActuar && vehiculo.estado === "MANTENIMIENTO" && (
+          <p className="rounded-xl bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-500">
+            Para devolver este vehículo a circulación, cierra su incidencia en el módulo Incidencias.
+          </p>
+        )}
+
+        {puedeActuar && vehiculo.estado === "FUERA_DE_SERVICIO" && acciones.length === 0 && (
           <p className="rounded-xl bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-500">
             Está fuera de servicio: solo el administrador general puede reactivarlo.
           </p>

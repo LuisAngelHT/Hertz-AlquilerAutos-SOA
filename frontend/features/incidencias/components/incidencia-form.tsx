@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { AlertTriangle, LoaderCircle, Plus } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -185,9 +186,9 @@ export function IncidenciaForm({
           </div>
 
           {error && (
-            <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
+            <AutoDismissFeedback key={error} role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
               {error}
-            </div>
+            </AutoDismissFeedback>
           )}
 
           <div className="flex justify-end border-t border-zinc-100 pt-5">

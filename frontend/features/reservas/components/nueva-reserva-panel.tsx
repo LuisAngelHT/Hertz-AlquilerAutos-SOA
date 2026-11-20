@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { CalendarCheck, CarFront, Check, LoaderCircle, Search } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ export function NuevaReservaPanel({ sesion, prefill, esPersonal, onCreada, onSes
 
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorTemporal, setErrorTemporal] = useState(false);
   const [creada, setCreada] = useState<Reserva | null>(null);
 
   // Vehículos libres para la categoría, la sucursal de recojo y las fechas elegidas (se consultan a ServicioFlota).
@@ -126,12 +128,14 @@ export function NuevaReservaPanel({ sesion, prefill, esPersonal, onCreada, onSes
       onSesionExpirada();
       return;
     }
+    setErrorTemporal(true);
     setError(cause instanceof Error ? cause.message : porDefecto);
   }
 
   async function buscarPorDocumento() {
     setBuscandoCliente(true);
     setError(null);
+    setErrorTemporal(false);
     setCliente(null);
     try {
       setCliente(await buscarCliente(sesion.token, tipoDocumento, numeroDocumento));
@@ -144,6 +148,8 @@ export function NuevaReservaPanel({ sesion, prefill, esPersonal, onCreada, onSes
 
   async function enviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
+    setErrorTemporal(false);
     if (esPersonal && !cliente) {
       setError("Primero busca al cliente por su documento.");
       return;
@@ -161,7 +167,6 @@ export function NuevaReservaPanel({ sesion, prefill, esPersonal, onCreada, onSes
       return;
     }
     setEnviando(true);
-    setError(null);
     setCreada(null);
     try {
       const reserva = await crearReserva(sesion, {
@@ -381,9 +386,9 @@ export function NuevaReservaPanel({ sesion, prefill, esPersonal, onCreada, onSes
                   </p>
                 )}
                 {resultadoActual?.error && (
-                  <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <AutoDismissFeedback key={resultadoActual.error} role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {resultadoActual.error}
-                  </div>
+                  </AutoDismissFeedback>
                 )}
                 {sinVehiculos && (
                   <p className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
@@ -442,20 +447,26 @@ export function NuevaReservaPanel({ sesion, prefill, esPersonal, onCreada, onSes
             )}
 
             {error && (
-              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
-                {error}
-              </div>
+              errorTemporal ? (
+                <AutoDismissFeedback key={error} role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
+                  {error}
+                </AutoDismissFeedback>
+              ) : (
+                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
+                  {error}
+                </div>
+              )
             )}
 
             {creada && (
-              <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-5 text-emerald-800">
+              <AutoDismissFeedback key={creada.idReserva} role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-5 text-emerald-800">
                 <p className="font-semibold">Reserva confirmada</p>
                 <p className="mt-1">
                   {etiquetaCategoria(creada.categoria)} · recojo en {etiquetaSucursal(creada.sucursalRecojo)} ·{" "}
                   {formatearFecha(creada.fechaInicio)} al {formatearFecha(creada.fechaFin)}
                 </p>
                 <p className="mt-1 text-xs text-emerald-700">Código: {creada.idReserva}</p>
-              </div>
+              </AutoDismissFeedback>
             )}
 
             <Button

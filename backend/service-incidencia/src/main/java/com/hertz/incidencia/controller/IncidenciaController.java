@@ -1,5 +1,6 @@
 package com.hertz.incidencia.controller;
 
+import com.hertz.incidencia.dto.CierreIncidenciaResponse;
 import com.hertz.incidencia.dto.IncidenciaRequest;
 import com.hertz.incidencia.dto.IncidenciaResponse;
 import com.hertz.incidencia.dto.PaginaIncidenciasResponse;
@@ -48,5 +49,13 @@ public class IncidenciaController {
             @PathVariable UUID id,
             @RequestHeader(value = "X-Sucursal", required = false) String sucursal) {
         return service.obtener(id, sucursal);
+    }
+
+    // Cerrar la incidencia y devolver el vehículo a disponible si no quedan otras abiertas.
+    @PutMapping("/{id}/cerrar")
+    public CierreIncidenciaResponse cerrar(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-Sucursal", required = false) String sucursal) {
+        return service.cerrar(id, sucursal);
     }
 }

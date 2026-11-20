@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import {
   ArrowRight,
   Eye,
@@ -81,12 +82,13 @@ export function LoginForm() {
       <Card className="rounded-3xl border-0 bg-white shadow-[0_18px_60px_-32px_rgba(24,24,27,0.28)] ring-1 ring-zinc-200/80">
         <CardContent className="p-5 sm:p-8">
           {registroExitoso && (
-            <div
+            <AutoDismissFeedback
+              key="registro-exitoso"
               role="status"
               className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
             >
               Cuenta creada. Inicia sesión con tu correo y la contraseña que registraste.
-            </div>
+            </AutoDismissFeedback>
           )}
           <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
@@ -166,12 +168,13 @@ export function LoginForm() {
           </div>
 
           {error && (
-            <div
+            <AutoDismissFeedback
+              key={error}
               role="alert"
               className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700"
             >
               {error}
-            </div>
+            </AutoDismissFeedback>
           )}
 
           <Button

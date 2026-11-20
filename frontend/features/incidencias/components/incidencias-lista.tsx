@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { ChevronLeft, ChevronRight, LoaderCircle, Search } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,12 +23,14 @@ const POR_PAGINA = 8;
 interface IncidenciasListaProps {
   sesion: Sesion;
   version: number;
+  onCerrada: () => void;
   onSesionExpirada: () => void;
 }
 
 export function IncidenciasLista({
   sesion,
   version,
+  onCerrada,
   onSesionExpirada,
 }: IncidenciasListaProps) {
   const [placa, setPlaca] = useState("");
@@ -148,9 +151,9 @@ export function IncidenciasLista({
       </Card>
 
       {error && (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
+        <AutoDismissFeedback key={error} role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
           {error}
-        </div>
+        </AutoDismissFeedback>
       )}
 
       {cargando && !resultado ? (
@@ -172,7 +175,13 @@ export function IncidenciasLista({
             </div>
             <div className="space-y-4">
               {resultado.incidencias.map((incidencia) => (
-                <IncidenciaCard key={incidencia.idIncidencia} incidencia={incidencia} />
+                <IncidenciaCard
+                  key={incidencia.idIncidencia}
+                  incidencia={incidencia}
+                  sesion={sesion}
+                  onCerrada={onCerrada}
+                  onSesionExpirada={onSesionExpirada}
+                />
               ))}
             </div>
             <div className="flex items-center justify-between gap-3">

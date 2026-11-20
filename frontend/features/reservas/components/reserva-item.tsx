@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CalendarDays, CarFront, History, LoaderCircle, MapPin, UserRound } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { etiquetaCategoria, etiquetaSucursal } from "@/features/flota/lib/constants";
@@ -272,9 +273,9 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
         )}
 
         {error && (
-          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-5 text-red-700">
+          <AutoDismissFeedback key={error} role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-5 text-red-700">
             {error}
-          </div>
+          </AutoDismissFeedback>
         )}
 
         {esPersonal && (

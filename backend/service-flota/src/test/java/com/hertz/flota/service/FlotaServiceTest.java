@@ -136,7 +136,7 @@ class FlotaServiceTest {
     @Test
     void cadaCambioDeEstadoQuedaEnElHistorial() {
         when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
-        service.actualizarEstado("ABC-103", EstadoVehiculo.MANTENIMIENTO, "agente", USUARIO, SEDE, "  Golpe en puerta  ");
+        service.actualizarEstado("ABC-103", EstadoVehiculo.MANTENIMIENTO, "servicio", USUARIO, SEDE, "  Golpe en puerta  ");
 
         ArgumentCaptor<HistorialVehiculo> captor = ArgumentCaptor.forClass(HistorialVehiculo.class);
         verify(historial).save(captor.capture());
@@ -145,14 +145,14 @@ class FlotaServiceTest {
         assertEquals(EstadoVehiculo.DISPONIBLE, h.getEstadoAnterior());
         assertEquals(EstadoVehiculo.MANTENIMIENTO, h.getEstadoNuevo());
         assertEquals(USUARIO, h.getUsuario());
-        assertEquals("AGENTE", h.getRol());
+        assertEquals("SERVICIO", h.getRol());
         assertEquals("Golpe en puerta", h.getMotivo());
     }
 
     @Test
     void sinUsuarioSeRegistraComoDesconocido() {
         when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
-        service.actualizarEstado("ABC-103", EstadoVehiculo.MANTENIMIENTO, "AGENTE", null, SEDE, "  ");
+        service.actualizarEstado("ABC-103", EstadoVehiculo.MANTENIMIENTO, "SERVICIO", null, SEDE, "  ");
 
         ArgumentCaptor<HistorialVehiculo> captor = ArgumentCaptor.forClass(HistorialVehiculo.class);
         verify(historial).save(captor.capture());
@@ -219,7 +219,7 @@ class FlotaServiceTest {
     void agenteNoPuedeCambiarVehiculoDeOtraSucursal() {
         when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
         var ex = assertThrows(FlotaException.class, () -> service.actualizarEstado(
-                "ABC-103", EstadoVehiculo.MANTENIMIENTO, "AGENTE", USUARIO, "CUSCO_AEROPUERTO", null));
+                "ABC-103", EstadoVehiculo.ALQUILADO, "AGENTE", USUARIO, "CUSCO_AEROPUERTO", null));
         assertEquals("SUCURSAL_NO_AUTORIZADA", ex.getCodigo());
         verify(historial, never()).save(any());
     }
@@ -228,27 +228,52 @@ class FlotaServiceTest {
     void agenteSinSucursalNoPuedeCambiarEstado() {
         when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
         var ex = assertThrows(FlotaException.class, () -> service.actualizarEstado(
-                "ABC-103", EstadoVehiculo.MANTENIMIENTO, "AGENTE", USUARIO, null, null));
+                "ABC-103", EstadoVehiculo.ALQUILADO, "AGENTE", USUARIO, null, null));
         assertEquals("SUCURSAL_NO_AUTORIZADA", ex.getCodigo());
     }
 
     @Test
-    void administradorDeSucursalCambiaSoloSuSucursal() {
+    void administradorDeSucursalCambiaEstadoOperativoSoloEnSuSucursal() {
         when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
-        var ok = service.actualizarEstado("ABC-103", EstadoVehiculo.MANTENIMIENTO,
+        var ok = service.actualizarEstado("ABC-103", EstadoVehiculo.ALQUILADO,
                 "ADMINISTRADOR_SUCURSAL", USUARIO, "lima_aeropuerto", null);
-        assertEquals(EstadoVehiculo.MANTENIMIENTO, ok.estado());
+        assertEquals(EstadoVehiculo.ALQUILADO, ok.estado());
 
         when(repo.findById("ABC-104")).thenReturn(Optional.of(vehiculo("ABC-104", EstadoVehiculo.DISPONIBLE)));
         assertThrows(FlotaException.class, () -> service.actualizarEstado("ABC-104",
-                EstadoVehiculo.MANTENIMIENTO, "ADMINISTRADOR_SUCURSAL", USUARIO, "LIMA_MIRAFLORES", null));
+                EstadoVehiculo.ALQUILADO, "ADMINISTRADOR_SUCURSAL", USUARIO, "LIMA_MIRAFLORES", null));
     }
 
     @Test
-    void administradorGeneralCambiaCualquierSucursalAunSinSucursal() {
+    void administradorGeneralCambiaEstadoOperativoEnCualquierSucursal() {
         when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
-        var r = service.actualizarEstado("ABC-103", EstadoVehiculo.MANTENIMIENTO, "ADMINISTRADOR", USUARIO, null, null);
+        var r = service.actualizarEstado("ABC-103", EstadoVehiculo.ALQUILADO, "ADMINISTRADOR", USUARIO, null, null);
+        assertEquals(EstadoVehiculo.ALQUILADO, r.estado());
+    }
+
+    @Test
+    void soloIncidenciasPuedeEnviarUnVehiculoAMantenimiento() {
+        when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
+        var ex = assertThrows(FlotaException.class, () -> service.actualizarEstado(
+                "ABC-103", EstadoVehiculo.MANTENIMIENTO, "AGENTE", USUARIO, SEDE, null));
+        assertEquals("TRANSICION_INVALIDA", ex.getCodigo());
+        verify(historial, never()).save(any());
+
+        var r = service.actualizarEstado(
+                "ABC-103", EstadoVehiculo.MANTENIMIENTO, "SERVICIO", USUARIO, null, null);
         assertEquals(EstadoVehiculo.MANTENIMIENTO, r.estado());
+    }
+
+    @Test
+    void soloIncidenciasPuedeLiberarUnVehiculoEnMantenimiento() {
+        when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.MANTENIMIENTO)));
+        var ex = assertThrows(FlotaException.class, () -> service.actualizarEstado(
+                "ABC-103", EstadoVehiculo.DISPONIBLE, "ADMINISTRADOR", USUARIO, null, null));
+        assertEquals("TRANSICION_INVALIDA", ex.getCodigo());
+
+        var r = service.actualizarEstado(
+                "ABC-103", EstadoVehiculo.DISPONIBLE, "SERVICIO", USUARIO, null, null);
+        assertEquals(EstadoVehiculo.DISPONIBLE, r.estado());
     }
 
     // ---------- Apartado de vehiculos (ServicioReserva) ----------

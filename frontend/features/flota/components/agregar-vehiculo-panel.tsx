@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { CirclePlus, LoaderCircle } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -164,19 +165,19 @@ export function AgregarVehiculoPanel({ sesion, onSesionExpirada }: AgregarVehicu
             </div>
 
             {error && (
-              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
+              <AutoDismissFeedback key={error} role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
                 {error}
-              </div>
+              </AutoDismissFeedback>
             )}
 
             {creado && (
-              <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-5 text-emerald-800">
+              <AutoDismissFeedback key={creado.placa} role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-5 text-emerald-800">
                 <p className="font-semibold">Vehículo registrado</p>
                 <p className="mt-1">
                   {creado.marca} {creado.modelo} {creado.anio} · placa {creado.placa} · {etiquetaCategoria(creado.categoria)} ·{" "}
                   {etiquetaSucursal(creado.sucursal)}. Ya aparece como disponible.
                 </p>
-              </div>
+              </AutoDismissFeedback>
             )}
 
             <Button

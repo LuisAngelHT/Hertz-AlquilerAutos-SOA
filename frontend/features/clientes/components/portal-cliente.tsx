@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { BadgeCheck, CalendarCheck, CarFront, LoaderCircle, MapPin, Plane, Repeat, Search, UserRound } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -78,16 +79,19 @@ function Catalogo({ sesion, onAuthExpired }: PortalClienteProps) {
   const [hasta, setHasta] = useState("");
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorTemporal, setErrorTemporal] = useState(false);
   const [resultado, setResultado] = useState<{ datos: Disponibilidad; busqueda: string } | null>(null);
 
   async function buscar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!desde || !hasta) {
+      setErrorTemporal(false);
       setError("Elige las fechas de inicio y de fin.");
       return;
     }
     setBuscando(true);
     setError(null);
+    setErrorTemporal(false);
     try {
       const datos = await consultarDisponibilidad(
         { ...sesion, sucursal: sesion.sucursal ?? null },
@@ -101,6 +105,7 @@ function Catalogo({ sesion, onAuthExpired }: PortalClienteProps) {
         return;
       }
       setResultado(null);
+      setErrorTemporal(true);
       setError(cause instanceof Error ? cause.message : "No se pudo consultar la disponibilidad.");
     } finally {
       setBuscando(false);
@@ -181,9 +186,15 @@ function Catalogo({ sesion, onAuthExpired }: PortalClienteProps) {
             </Button>
           </form>
           {error && (
-            <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
+            errorTemporal ? (
+              <AutoDismissFeedback key={error} role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </AutoDismissFeedback>
+            ) : (
+              <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )
           )}
         </CardContent>
       </Card>
@@ -416,14 +427,14 @@ function MiPerfil({ sesion, onAuthExpired }: PortalClienteProps) {
               </div>
 
               {error && (
-                <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <AutoDismissFeedback key={error} role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}
-                </div>
+                </AutoDismissFeedback>
               )}
               {guardado && (
-                <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <AutoDismissFeedback key="perfil-guardado" role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
                   Tus datos se guardaron.
-                </div>
+                </AutoDismissFeedback>
               )}
 
               <Button
@@ -438,9 +449,9 @@ function MiPerfil({ sesion, onAuthExpired }: PortalClienteProps) {
           )}
 
           {!cargando && !cliente && error && (
-            <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AutoDismissFeedback key={error} role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
-            </div>
+            </AutoDismissFeedback>
           )}
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { LoaderCircle, Save, X } from "lucide-react";
+import { AutoDismissFeedback } from "@/components/auto-dismiss-feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ApiRequestError } from "@/lib/api-client";
@@ -116,12 +117,13 @@ export function ClienteEdicionForm({
           />
 
           {error && (
-            <div
+            <AutoDismissFeedback
+              key={error}
               role="alert"
               className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
             >
               {error}
-            </div>
+            </AutoDismissFeedback>
           )}
 
           <div className="flex flex-col-reverse gap-3 border-t border-zinc-100 pt-5 sm:flex-row sm:justify-end">

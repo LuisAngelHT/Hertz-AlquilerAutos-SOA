@@ -103,9 +103,8 @@ public class FlotaController {
     }
 
     // PUT /api/v1/flota/vehiculos/ABC-103/estado con {"estado":"ALQUILADO"}.
-    // El body puede traer un "motivo" opcional. Los headers X-Rol y X-Usuario los pone el gateway;
-    // si el rol falta o no puede escribir -> 403. El usuario queda en el historial. X-Sucursal es la
-    // sede del usuario: AGENTE y ADMINISTRADOR_SUCURSAL solo modifican vehículos de esa sede (403 si no).
+    // El body puede traer un "motivo" opcional. El gateway pone X-Rol y X-Usuario;
+    // los cambios hacia/desde MANTENIMIENTO se realizan desde Incidencias.
     @PutMapping("/vehiculos/{placa}/estado")
     // FUERA_DE_SERVICIO (baja) y reactivar un vehiculo dado de baja: solo el ADMINISTRADOR general.
     @Operation(summary = "Actualiza el estado del vehiculo (AGENTE, ADMINISTRADOR o ADMINISTRADOR_SUCURSAL; la baja solo ADMINISTRADOR)")

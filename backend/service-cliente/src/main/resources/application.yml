@@ -27,4 +27,4 @@ management:
         
 services:
   auth:
-    url: ${AUTH_SERVICE_URL}
+    url: ${AUTH_SERVICE_URL:http://localhost:8087}
