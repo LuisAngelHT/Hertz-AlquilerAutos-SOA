@@ -53,6 +53,7 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
                     .headers(h -> {
                         h.remove("X-Usuario");   // el cliente no puede inventar identidad
                         h.remove("X-Rol");
+                        h.remove("X-Sucursal");
                         h.set("X-Gateway-Secret", internalSecret);
                     })
                     .build();
@@ -72,6 +73,13 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
                             .headers(h -> {
                                 h.set("X-Usuario", String.valueOf(claims.get("correo")));
                                 h.set("X-Rol", String.valueOf(claims.get("rol")));
+                                // Sede del usuario (solo si la tiene). Se borra primero lo que mande el
+                                // cliente, para que nadie pueda inventarse una sucursal.
+                                h.remove("X-Sucursal");
+                                Object sucursal = claims.get("sucursal");
+                                if (sucursal != null && !String.valueOf(sucursal).isBlank()) {
+                                    h.set("X-Sucursal", String.valueOf(sucursal));
+                                }
                                 h.set("X-Gateway-Secret", internalSecret);
                             })
                             .build();

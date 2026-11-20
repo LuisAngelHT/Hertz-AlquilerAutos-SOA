@@ -11,6 +11,8 @@
 
     <modules>
         <module>service-auth</module>
+        <module>service-flota</module>
+        <module>service-reserva</module>
         <module>api-gateway</module>
         <module>service-cliente</module>
     </modules>

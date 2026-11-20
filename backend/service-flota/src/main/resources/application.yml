@@ -1,0 +1,37 @@
+# Configuración de service-flota. No lleva valores secretos: se leen de variables de entorno.
+server:
+  # Render asigna el puerto con la variable PORT; en local se usa el 8083.
+  port: ${PORT:8083}
+
+spring:
+  profiles:
+    # En tu PC se carga application-local.yml (ignorado por git) con la conexión real.
+    # En Render no existe ese archivo y se usan las variables DB_URL, DB_USER y DB_PASSWORD.
+    default: local
+  application:
+    name: service-flota
+  datasource:
+    # URL del pooler de Supabase con ?currentSchema=flota; usuario svc_flota.<ref-del-proyecto>.
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      # Pocas conexiones: Supabase (plan gratis) limita el total entre todos los servicios.
+      maximum-pool-size: 3
+      minimum-idle: 1
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Las tablas ya existen (script db/flota.sql): Hibernate solo comprueba que coincidan, no las crea.
+      ddl-auto: validate
+
+# Secreto compartido con el API Gateway (variable GATEWAY_SECRET, la misma en todos los servicios).
+# Flota solo acepta solicitudes que traigan el header X-Gateway-Secret con este valor.
+gateway:
+  secret: ${GATEWAY_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

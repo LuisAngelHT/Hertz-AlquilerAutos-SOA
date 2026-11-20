@@ -6,6 +6,8 @@ export interface LoginResponse {
   expiraEn: string;
   rol: string;
   nombre: string;
+  /** Sede del usuario (AGENTE / ADMINISTRADOR_SUCURSAL); null o ausente si no tiene. */
+  sucursal?: string | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

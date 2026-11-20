@@ -1,0 +1,50 @@
+# Configuración de service-reserva. No lleva valores secretos: se leen de variables de entorno.
+server:
+  # Render asigna el puerto con la variable PORT; en local se usa el 8084.
+  port: ${PORT:8084}
+
+spring:
+  profiles:
+    # En tu PC se carga application-local.yml (ignorado por git) con la conexión real.
+    # En Render no existe ese archivo y se usan las variables de entorno.
+    default: local
+  application:
+    name: service-reserva
+  datasource:
+    # URL del pooler de Supabase con ?currentSchema=reserva; usuario svc_reserva.<ref-del-proyecto>.
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      # Pocas conexiones: Supabase (plan gratis) limita el total entre todos los servicios.
+      maximum-pool-size: 3
+      minimum-idle: 1
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Las tablas ya existen (script db/reserva.sql): Hibernate solo comprueba que coincidan.
+      ddl-auto: validate
+
+# Secreto compartido con el API Gateway (la misma variable GATEWAY_SECRET en todos los servicios).
+# Reserva solo acepta solicitudes con el header X-Gateway-Secret igual a este valor.
+gateway:
+  secret: ${GATEWAY_SECRET}
+
+# Servicios a los que reserva llama (URL directa, sin pasar por el gateway). Se les envía el
+# mismo secreto y el rol interno SERVICIO.
+services:
+  flota:
+    url: ${FLOTA_SERVICE_URL:http://localhost:8083}
+  cliente:
+    url: ${CLIENTE_SERVICE_URL:http://localhost:8081}
+
+# Reglas de negocio ajustables.
+reserva:
+  # Duración máxima de una reserva, en días.
+  max-dias: ${RESERVA_MAX_DIAS:60}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

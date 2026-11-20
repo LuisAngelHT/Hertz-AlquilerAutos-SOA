@@ -140,6 +140,12 @@ export function ClienteRegistroForm({
         </div>
 
         <form className="space-y-6" onSubmit={handleSubmit}>
+          <ClienteFormFields
+            values={values}
+            onChange={handleChange}
+            incluirIdentidad
+          />
+
           <div className="space-y-2">
             <label
               htmlFor="password"
@@ -164,12 +170,6 @@ export function ClienteRegistroForm({
               Usarás esta contraseña junto con tu correo para acceder a tu cuenta.
             </p>
           </div>
-
-          <ClienteFormFields
-            values={values}
-            onChange={handleChange}
-            incluirIdentidad
-          />
 
           {error && (
             <div

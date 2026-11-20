@@ -11,6 +11,13 @@ interface ClienteFormFieldsProps {
   incluirIdentidad: boolean;
 }
 
+/** AAAA-MM-DD de hoy menos N años (para el límite de edad del selector de fecha). */
+function fechaHaceAnios(anios: number): string {
+  const fecha = new Date();
+  fecha.setFullYear(fecha.getFullYear() - anios);
+  return fecha.toLocaleDateString("en-CA");
+}
+
 const inputClassName =
   "h-11 rounded-xl border-zinc-200 bg-white px-3 text-sm focus-visible:border-amber-400 focus-visible:ring-amber-300/40";
 
@@ -127,8 +134,11 @@ export function ClienteFormFields({
             value={values.fechaNacimiento}
             onChange={(event) => onChange("fechaNacimiento", event.target.value)}
             required
+            max={fechaHaceAnios(18)}
+            title="Debes ser mayor de 18 años."
             className={inputClassName}
           />
+          <p className="text-xs text-zinc-400">Debe ser mayor de 18 años.</p>
         </Field>
       )}
       <Field id="email" label="Correo electrónico">
@@ -145,19 +155,23 @@ export function ClienteFormFields({
           className={inputClassName}
         />
       </Field>
-      <Field id="telefono" label="Teléfono (opcional)">
+      <Field id="telefono" label="Teléfono">
         <Input
           id="telefono"
           name="telefono"
           type="tel"
           value={values.telefono}
           onChange={(event) => onChange("telefono", event.target.value)}
+          required
+          pattern="[+0-9 ()\-]{7,20}"
+          title="Solo números, espacios, + , ( ) y -. Entre 7 y 20 caracteres."
+          placeholder="999 888 777"
           maxLength={20}
           autoComplete="tel"
           className={inputClassName}
         />
       </Field>
-      <Field id="licenciaConducir" label="Licencia de conducir (opcional)">
+      <Field id="licenciaConducir" label="Licencia de conducir">
         <Input
           id="licenciaConducir"
           name="licenciaConducir"
@@ -165,6 +179,7 @@ export function ClienteFormFields({
           onChange={(event) =>
             onChange("licenciaConducir", event.target.value.toUpperCase())
           }
+          required
           maxLength={20}
           autoComplete="off"
           className={inputClassName}
@@ -179,6 +194,9 @@ export function ClienteFormFields({
           onChange={(event) =>
             onChange("vencimientoLicencia", event.target.value)
           }
+          required
+          min={new Date().toLocaleDateString("en-CA")}
+          title="La licencia debe estar vigente."
           className={inputClassName}
         />
       </Field>

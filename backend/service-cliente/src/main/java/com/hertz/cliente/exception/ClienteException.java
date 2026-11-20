@@ -31,11 +31,26 @@ public class ClienteException extends RuntimeException {
     }
     public static ClienteException rolNoPermitido() {
         return new ClienteException("ROL_NO_PERMITIDO", HttpStatus.FORBIDDEN,
-                "Solo AGENTE o ADMINISTRADOR pueden consultar o modificar datos de clientes");
+                "Solo AGENTE, ADMINISTRADOR o ADMINISTRADOR_SUCURSAL pueden consultar o modificar datos de clientes");
     }
     public static ClienteException correoYaRegistrado() {
         return new ClienteException("CORREO_YA_REGISTRADO", HttpStatus.CONFLICT,
                 "Ya existe una cuenta con ese correo");
+    }
+
+    public static ClienteException menorDeEdad() {
+        return new ClienteException("CLIENTE_MENOR_DE_EDAD", HttpStatus.BAD_REQUEST,
+                "El cliente debe ser mayor de 18 años para alquilar un vehículo");
+    }
+
+    public static ClienteException licenciaVencida() {
+        return new ClienteException("LICENCIA_VENCIDA", HttpStatus.BAD_REQUEST,
+                "La licencia de conducir está vencida; ingresa una vigente");
+    }
+
+    public static ClienteException soloCliente() {
+        return new ClienteException("ROL_NO_PERMITIDO", HttpStatus.FORBIDDEN,
+                "Solo un cliente puede consultar o editar su propio perfil");
     }
 
     public static ClienteException servicioAuthNoDisponible() {
