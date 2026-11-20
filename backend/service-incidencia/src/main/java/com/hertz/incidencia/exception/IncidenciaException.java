@@ -36,6 +36,12 @@ public class IncidenciaException extends RuntimeException {
                 "El vehículo no puede pasar a MANTENIMIENTO desde su estado actual");
     }
 
+    public static IncidenciaException vehiculoAlquilado(String placa) {
+        return new IncidenciaException("VEHICULO_ALQUILADO", HttpStatus.CONFLICT,
+                "El vehículo " + placa + " está alquilado. Registra primero su devolución en Reservas "
+                        + "y después la incidencia.");
+    }
+
     public static IncidenciaException servicioNoDisponible(String servicio) {
         return new IncidenciaException("SERVICIO_NO_DISPONIBLE", HttpStatus.SERVICE_UNAVAILABLE,
                 servicio + " no está disponible. Reintenta en unos segundos");

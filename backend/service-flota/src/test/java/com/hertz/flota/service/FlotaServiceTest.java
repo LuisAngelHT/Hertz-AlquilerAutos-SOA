@@ -83,6 +83,25 @@ class FlotaServiceTest {
         assertEquals(EstadoVehiculo.ALQUILADO, r.estado());
     }
 
+    // ServicioReserva (rol interno SERVICIO) marca ALQUILADO en el check-out y DISPONIBLE en la devolución,
+    // aunque el vehículo sea de cualquier sucursal y la llamada no traiga sucursal de usuario.
+    @Test
+    void elServicioInternoPuedeMarcarAlquiladoYDevueltoSinSucursal() {
+        when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
+        var alquilado = service.actualizarEstado("ABC-103", EstadoVehiculo.ALQUILADO, "SERVICIO", "service-reserva", null, "Check-out");
+        assertEquals(EstadoVehiculo.ALQUILADO, alquilado.estado());
+        var devuelto = service.actualizarEstado("ABC-103", EstadoVehiculo.DISPONIBLE, "SERVICIO", "service-reserva", null, "Devolución");
+        assertEquals(EstadoVehiculo.DISPONIBLE, devuelto.estado());
+    }
+
+    @Test
+    void elServicioInternoNoPuedeDarDeBajaUnVehiculo() {
+        when(repo.findById("ABC-103")).thenReturn(Optional.of(vehiculo("ABC-103", EstadoVehiculo.DISPONIBLE)));
+        var ex = assertThrows(FlotaException.class, () -> service.actualizarEstado(
+                "ABC-103", EstadoVehiculo.FUERA_DE_SERVICIO, "SERVICIO", "service-reserva", null, null));
+        assertEquals("ROL_NO_AUTORIZADO", ex.getCodigo());
+    }
+
     @Test
     void alquiladoNoSePuedeAlquilarDeNuevo() {
         when(repo.findById("ABC-104")).thenReturn(Optional.of(vehiculo("ABC-104", EstadoVehiculo.ALQUILADO)));

@@ -63,6 +63,54 @@ public class FlotaClient {
         });
     }
 
+    /** Vehículo tal como lo devuelve flota (solo lo que reserva necesita). */
+    public record Vehiculo(String placa, String estado) {
+    }
+
+    /** Estado actual del vehículo en flota (DISPONIBLE, ALQUILADO, MANTENIMIENTO, FUERA_DE_SERVICIO). */
+    public String consultarEstado(String placa) {
+        Vehiculo vehiculo = llamar(() -> http.get().uri("/api/v1/flota/vehiculos/{placa}", placa)
+                .retrieve().body(Vehiculo.class));
+        return vehiculo == null ? null : vehiculo.estado();
+    }
+
+    /**
+     * Check-out: marca el vehículo ALQUILADO en flota (según el documento, antes de crear el contrato).
+     * Si ya estaba ALQUILADO no hace nada, así reintentar la entrega es seguro. Si está en
+     * mantenimiento o dado de baja no se puede entregar: 409 con un mensaje claro.
+     */
+    public void marcarAlquilado(String placa, String motivo) {
+        String actual = consultarEstado(placa);
+        if ("ALQUILADO".equals(actual)) {
+            return;
+        }
+        if (!"DISPONIBLE".equals(actual)) {
+            throw ReservaException.transicionInvalida("El vehículo " + placa + " está en " + actual
+                    + " y no se puede entregar. Cambia la reserva a otro vehículo de la categoría.");
+        }
+        cambiarEstado(placa, "ALQUILADO", motivo);
+    }
+
+    /**
+     * Devolución: el vehículo vuelve a DISPONIBLE solo si estaba ALQUILADO. Si mientras tanto pasó a
+     * MANTENIMIENTO (una incidencia) o a baja, se respeta ese estado.
+     */
+    public void marcarDevuelto(String placa, String motivo) {
+        if ("ALQUILADO".equals(consultarEstado(placa))) {
+            cambiarEstado(placa, "DISPONIBLE", motivo);
+        }
+    }
+
+    private void cambiarEstado(String placa, String estado, String motivo) {
+        llamar(() -> {
+            http.put().uri("/api/v1/flota/vehiculos/{placa}/estado", placa)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("estado", estado, "motivo", motivo))
+                    .retrieve().toBodilessEntity();
+            return null;
+        });
+    }
+
     private static Map<String, Object> cuerpo(String referencia, String sucursal, String categoria,
                                               LocalDate inicio, LocalDate fin) {
         return Map.of("referencia", referencia, "sucursal", sucursal, "categoria", categoria,

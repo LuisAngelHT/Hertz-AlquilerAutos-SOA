@@ -70,8 +70,9 @@ export function ContratosPage() {
                 Contratos
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-                Consulta los contratos de alquiler de tu sucursal. Se generan al registrar la entrega
-                del vehículo en Reservas y se finalizan al completar su devolución.
+                Consulta los contratos de alquiler. Cada sucursal ve los de su sede y el administrador
+                general ve todos. Se generan al registrar la entrega del vehículo en Reservas y se
+                finalizan al completar su devolución.
               </p>
             </div>
 

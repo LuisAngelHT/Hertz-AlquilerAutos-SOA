@@ -267,10 +267,17 @@ public class ReservaService {
                     "Una reserva " + reserva.getEstado() + " no puede pasar a " + nuevo);
         }
         EstadoReserva anterior = reserva.getEstado();
+        if (nuevo == EstadoReserva.EN_CURSO) {
+            // Según el documento, en el check-out el vehículo pasa a ALQUILADO en flota ANTES del contrato.
+            // Se hace antes de tocar la reserva: si el vehículo no se puede entregar (por ejemplo, está en
+            // mantenimiento) la reserva queda como estaba y el agente recibe un mensaje claro.
+            entregarVehiculo(reserva);
+        }
         reserva.cambiarEstado(nuevo);
         ReservaResponse respuesta = guardarConHistorial(reserva, nuevo.name(), anterior, rol, actor, motivo);
         if (nuevo == EstadoReserva.FINALIZADA) {
             liberarSinFallar(reserva.getId());   // el vehículo volvió: que quede libre para otras reservas
+            recibirVehiculo(reserva);            // y en flota deja de figurar como ALQUILADO
         }
         if (nuevo == EstadoReserva.EN_CURSO) {
             contratos.crear(reserva.getId());
@@ -280,14 +287,30 @@ public class ReservaService {
         return respuesta;
     }
 
+    // Reintento de una entrega o devolución que quedó a medias (la reserva ya cambió de estado pero falló
+    // un paso posterior). Todos los pasos son idempotentes, así que repetirlos es seguro.
     private ReservaResponse sincronizarContrato(Reserva reserva, EstadoReserva estado) {
         if (estado == EstadoReserva.EN_CURSO) {
+            entregarVehiculo(reserva);
             contratos.crear(reserva.getId());
         } else if (estado == EstadoReserva.FINALIZADA) {
             liberarSinFallar(reserva.getId());
+            recibirVehiculo(reserva);
             contratos.finalizar(reserva.getId());
         }
         return ReservaResponse.de(reserva);
+    }
+
+    private void entregarVehiculo(Reserva reserva) {
+        if (reserva.getPlacaAsignada() != null) {
+            flota.marcarAlquilado(reserva.getPlacaAsignada(), "Check-out de la reserva " + reserva.getId());
+        }
+    }
+
+    private void recibirVehiculo(Reserva reserva) {
+        if (reserva.getPlacaAsignada() != null) {
+            flota.marcarDevuelto(reserva.getPlacaAsignada(), "Devolución de la reserva " + reserva.getId());
+        }
     }
 
     private ReservaResponse reprogramar(Reserva reserva, ModificarReservaRequest cambios, Actor actor) {

@@ -78,7 +78,8 @@ export function IncidenciasPage() {
                 Incidencias
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-                Registra daños, siniestros o necesidades de mantenimiento y consulta el historial de tu sucursal.
+                Registra daños, siniestros o necesidades de mantenimiento y consulta el historial.
+                Cada sucursal ve las de su sede y el administrador general ve todas.
               </p>
             </div>
 

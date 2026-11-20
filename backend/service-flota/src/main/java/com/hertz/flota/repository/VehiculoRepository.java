@@ -20,12 +20,15 @@ public interface VehiculoRepository extends JpaRepository<Vehiculo, String> {
     /**
      * Vehiculos en el estado indicado, de la sucursal y categoria pedidas, que no tienen
      * ningun bloqueo (reserva, contrato o mantenimiento) cruzado con el rango [inicio, fin].
+     * Un vehiculo ALQUILADO tambien cuenta: su alquiler actual tiene un bloqueo hasta la fecha de
+     * devolucion, asi que queda libre para reservas que empiecen despues (el cruce de fechas lo
+     * decide). Si no, un auto en la calle desapareceria de todas las reservas futuras.
      */
     @Query("""
             select v from Vehiculo v
             where v.sucursal = :sucursal
               and v.categoria = :categoria
-              and v.estado = :estado
+              and (v.estado = :estado or v.estado = com.hertz.flota.entity.EstadoVehiculo.ALQUILADO)
               and not exists (
                   select b.id from BloqueoVehiculo b
                   where b.placa = v.placa
@@ -71,7 +74,7 @@ public interface VehiculoRepository extends JpaRepository<Vehiculo, String> {
             select v from Vehiculo v
             where v.sucursal = :sucursal
               and v.categoria = :categoria
-              and v.estado = :estado
+              and (v.estado = :estado or v.estado = com.hertz.flota.entity.EstadoVehiculo.ALQUILADO)
               and not exists (
                   select b.id from BloqueoVehiculo b
                   where b.placa = v.placa
@@ -97,7 +100,7 @@ public interface VehiculoRepository extends JpaRepository<Vehiculo, String> {
             where v.placa = :placa
               and v.sucursal = :sucursal
               and v.categoria = :categoria
-              and v.estado = :estado
+              and (v.estado = :estado or v.estado = com.hertz.flota.entity.EstadoVehiculo.ALQUILADO)
               and not exists (
                   select b.id from BloqueoVehiculo b
                   where b.placa = v.placa

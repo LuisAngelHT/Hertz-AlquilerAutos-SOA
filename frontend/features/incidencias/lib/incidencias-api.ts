@@ -1,6 +1,7 @@
 import { ApiRequestError, requestJson } from "@/lib/api-client";
 import type {
   EstadoIncidencia,
+  Incidencia,
   NuevaIncidencia,
   PaginaIncidencias,
   RegistroIncidencia,
@@ -24,6 +25,11 @@ export function mensajeErrorIncidencia(cause: unknown): string {
       return "Solo puedes registrar o consultar incidencias de vehículos de tu sucursal.";
     case "INCIDENCIA_NO_ENCONTRADA":
       return "No se encontró la incidencia solicitada.";
+    case "VEHICULO_ALQUILADO":
+      return (
+        cause.message ||
+        "El vehículo está alquilado. Registra primero su devolución en Reservas y después la incidencia."
+      );
     case "SERVICIO_NO_DISPONIBLE":
       return cause.message || "Un servicio no está disponible. Inténtalo de nuevo.";
     case "SOLICITUD_INVALIDA":
@@ -53,6 +59,14 @@ export function listarIncidencias(
   if (filtro.estado) params.set("estado", filtro.estado);
 
   return requestJson(`/api/v1/incidencia?${params.toString()}`, {
+    headers: authHeaders(token),
+  });
+}
+
+/** PUT /api/v1/incidencia/{id}/cerrar — la cierra y, si era la última abierta, el vehículo vuelve a DISPONIBLE. */
+export function cerrarIncidencia(token: string, idIncidencia: string): Promise<Incidencia> {
+  return requestJson(`/api/v1/incidencia/${encodeURIComponent(idIncidencia)}/cerrar`, {
+    method: "PUT",
     headers: authHeaders(token),
   });
 }

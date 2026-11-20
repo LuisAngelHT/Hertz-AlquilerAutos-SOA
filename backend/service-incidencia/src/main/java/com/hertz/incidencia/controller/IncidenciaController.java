@@ -49,4 +49,13 @@ public class IncidenciaController {
             @RequestHeader(value = "X-Sucursal", required = false) String sucursal) {
         return service.obtener(id, sucursal);
     }
+
+    // PUT /api/v1/incidencia/{id}/cerrar -> la incidencia queda CERRADA y, si era la última abierta del
+    // vehículo y este seguía en MANTENIMIENTO, vuelve a DISPONIBLE (mediante flota). Se puede repetir.
+    @PutMapping("/{id}/cerrar")
+    public IncidenciaResponse cerrar(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-Sucursal", required = false) String sucursal) {
+        return service.cerrar(id, sucursal);
+    }
 }

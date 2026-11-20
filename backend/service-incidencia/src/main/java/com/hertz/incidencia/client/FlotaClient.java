@@ -44,11 +44,20 @@ public class FlotaClient {
 
     // Post-condición: el vehículo pasa a MANTENIMIENTO mediante ServicioFlota
     public void pasarAMantenimiento(String placa, String motivo) {
+        cambiarEstado(placa, "MANTENIMIENTO", motivo);
+    }
+
+    // Al cerrar la última incidencia abierta, el vehículo vuelve a estar disponible (también mediante flota)
+    public void pasarADisponible(String placa, String motivo) {
+        cambiarEstado(placa, "DISPONIBLE", motivo);
+    }
+
+    private void cambiarEstado(String placa, String estado, String motivo) {
         try {
             restClient.put()
                     .uri("/api/v1/flota/vehiculos/{placa}/estado", placa)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("estado", "MANTENIMIENTO", "motivo", motivo))
+                    .body(Map.of("estado", estado, "motivo", motivo))
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientResponseException ex) {

@@ -1,4 +1,4 @@
--- SVC-05 ServicioContrato
+-- SVC-04 ServicioContrato
 -- Ejecutar en Supabase SQL Editor como administrador.
 -- Reemplaza la clave de ejemplo y no la subas a Git.
 

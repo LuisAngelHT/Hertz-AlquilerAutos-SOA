@@ -15,6 +15,7 @@ import {
 import {
   cancelarReserva,
   consultarHistorialReserva,
+  consultarReserva,
   modificarReserva,
   SesionExpiradaError,
   type CambioReserva,
@@ -43,6 +44,8 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
   const [motivo, setMotivo] = useState("");
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // La reserva ya cambió de estado pero el contrato no se pudo crear/cerrar: se ofrece reintentar.
+  const [contratoPendiente, setContratoPendiente] = useState<"EN_CURSO" | "FINALIZADA" | null>(null);
   const [historial, setHistorial] = useState<CambioReserva[] | null>(null);
   const [verHistorial, setVerHistorial] = useState(false);
 
@@ -59,6 +62,7 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
     try {
       const actualizada = await accion();
       onActualizada(actualizada);
+      setContratoPendiente(null);
       setModo("ninguno");
       setMotivo("");
       if (verHistorial) setHistorial(await consultarHistorialReserva(sesion, reserva.idReserva));
@@ -67,7 +71,23 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
         onSesionExpirada();
         return;
       }
-      setError(cause instanceof Error ? cause.message : "No se pudo completar la acción.");
+      let texto = cause instanceof Error ? cause.message : "No se pudo completar la acción.";
+      // El backend cambia el estado de la reserva y después llama al servicio de contratos: si esa
+      // segunda parte falla, la reserva sí cambió. Se consulta el estado real para no mostrar uno falso.
+      try {
+        const actual = await consultarReserva(sesion, reserva.idReserva);
+        if (actual.estado !== reserva.estado) {
+          onActualizada(actual);
+          if (actual.estado === "EN_CURSO" || actual.estado === "FINALIZADA") {
+            setContratoPendiente(actual.estado);
+            const hecho = actual.estado === "EN_CURSO" ? "quedó en curso" : "quedó finalizada";
+            texto = `La reserva ya ${hecho}, pero no se pudo actualizar su contrato. ${texto}`;
+          }
+        }
+      } catch {
+        // Si tampoco se puede consultar, se deja el mensaje original.
+      }
+      setError(texto);
     } finally {
       setTrabajando(false);
     }
@@ -189,6 +209,20 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
                 Registrar devolución
               </Button>
             )}
+          </div>
+        )}
+
+        {esPersonal && contratoPendiente && (
+          <div className="flex flex-wrap gap-2 border-t border-zinc-100 pt-4">
+            <Button
+              type="button"
+              disabled={trabajando}
+              onClick={() => ejecutar(() => modificarReserva(sesion, reserva.idReserva, { estado: contratoPendiente }))}
+              className="h-9 rounded-xl bg-[#ffd400] px-4 text-sm font-semibold text-zinc-950 hover:bg-[#f2c900]"
+            >
+              {trabajando && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
+              {contratoPendiente === "EN_CURSO" ? "Reintentar crear el contrato" : "Reintentar cerrar el contrato"}
+            </Button>
           </div>
         )}
 

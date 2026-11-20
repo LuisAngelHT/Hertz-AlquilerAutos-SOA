@@ -7,11 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Sesion } from "@/features/flota/lib/session";
 import {
+  cerrarIncidencia,
   listarIncidencias,
   mensajeErrorIncidencia,
 } from "@/features/incidencias/lib/incidencias-api";
 import {
   type EstadoIncidencia,
+  type Incidencia,
   type PaginaIncidencias,
 } from "@/features/incidencias/types/incidencia";
 import { ApiRequestError } from "@/lib/api-client";
@@ -79,6 +81,29 @@ export function IncidenciasLista({
   function cambiarPagina(nuevaPagina: number) {
     setCargando(true);
     setPagina(nuevaPagina);
+  }
+
+  // Cierra la incidencia y actualiza esa tarjeta sin recargar la lista. Si falla, la tarjeta muestra el motivo.
+  async function cerrar(incidencia: Incidencia) {
+    try {
+      const cerrada = await cerrarIncidencia(sesion.token, incidencia.idIncidencia);
+      setResultado((actual) =>
+        actual
+          ? {
+              ...actual,
+              incidencias: actual.incidencias.map((i) =>
+                i.idIncidencia === cerrada.idIncidencia ? cerrada : i,
+              ),
+            }
+          : actual,
+      );
+    } catch (cause) {
+      if (cause instanceof ApiRequestError && cause.status === 401) {
+        onSesionExpirada();
+        return;
+      }
+      throw new Error(mensajeErrorIncidencia(cause));
+    }
   }
 
   const desde =
@@ -172,7 +197,7 @@ export function IncidenciasLista({
             </div>
             <div className="space-y-4">
               {resultado.incidencias.map((incidencia) => (
-                <IncidenciaCard key={incidencia.idIncidencia} incidencia={incidencia} />
+                <IncidenciaCard key={incidencia.idIncidencia} incidencia={incidencia} onCerrar={cerrar} />
               ))}
             </div>
             <div className="flex items-center justify-between gap-3">

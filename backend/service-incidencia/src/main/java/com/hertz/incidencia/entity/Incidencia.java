@@ -6,6 +6,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+// DynamicUpdate: al cerrar una incidencia solo se actualiza la columna "estado", que es la única
+// sobre la que svc_incidencia tiene permiso UPDATE (ver db/incidencia.sql). Las demás son de solo escritura inicial.
+@org.hibernate.annotations.DynamicUpdate
 @Entity
 @Table(name = "incidencia", schema = "incidencia")
 public class Incidencia {
@@ -62,6 +65,11 @@ public class Incidencia {
         this.registradaPor = registradaPor;
         this.estado = EstadoIncidencia.ABIERTA;
         this.creadoEn = Instant.now();
+    }
+
+    /** Cierra la incidencia. Si ya estaba cerrada no hace nada (repetirlo es seguro). */
+    public void cerrar() {
+        this.estado = EstadoIncidencia.CERRADA;
     }
 
     public UUID getId() { return id; }

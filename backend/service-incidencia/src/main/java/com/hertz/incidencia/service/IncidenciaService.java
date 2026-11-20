@@ -23,6 +23,7 @@ import java.util.UUID;
 public class IncidenciaService {
 
     private static final String MANTENIMIENTO = "MANTENIMIENTO";
+    private static final String ALQUILADO = "ALQUILADO";
 
     private final IncidenciaRepository repository;
     private final FlotaClient flotaClient;
@@ -48,6 +49,12 @@ public class IncidenciaService {
             throw IncidenciaException.sucursalNoAutorizada();
         }
 
+        // Un vehículo que está con un cliente no se manda a mantenimiento: primero se registra su
+        // devolución (que lo deja DISPONIBLE) y recién después la incidencia, como en el flujo de devolución.
+        if (ALQUILADO.equals(vehiculo.estado())) {
+            throw IncidenciaException.vehiculoAlquilado(placa);
+        }
+
         UUID id = UUID.randomUUID();
 
         // Post-condición: el vehículo pasa a MANTENIMIENTO mediante SVC-03 (si ya lo está, no se repite)
@@ -60,6 +67,33 @@ public class IncidenciaService {
                 request.descripcion().trim(), request.costoEstimado(), vehiculo.estado(), usuario));
 
         return new RegistroResponse(guardada.getId(), guardada.getEstado(), MANTENIMIENTO, guardada.getPlaca());
+    }
+
+    /**
+     * Cierra una incidencia. Si era la última ABIERTA de ese vehículo y sigue en MANTENIMIENTO, lo
+     * devuelve a DISPONIBLE (mediante flota, que es la única que cambia el estado). Es idempotente:
+     * si la incidencia ya estaba cerrada y el vehículo seguía en mantenimiento por un corte anterior,
+     * repetir la llamada termina de liberarlo. No es @Transactional por la misma razón que registrar.
+     */
+    public IncidenciaResponse cerrar(UUID id, String sucursalUsuario) {
+        Incidencia incidencia = repository.findById(id).orElseThrow(IncidenciaException::incidenciaNoEncontrada);
+        if (restringido(sucursalUsuario) && !incidencia.getSucursal().equalsIgnoreCase(sucursalUsuario.trim())) {
+            throw IncidenciaException.incidenciaNoEncontrada();   // fuera de su sede: como si no existiera
+        }
+
+        if (incidencia.getEstado() != EstadoIncidencia.CERRADA) {
+            incidencia.cerrar();
+            incidencia = repository.save(incidencia);
+        }
+
+        // Solo se libera el vehículo si ya no quedan más incidencias abiertas sobre él.
+        if (repository.countByPlacaAndEstado(incidencia.getPlaca(), EstadoIncidencia.ABIERTA) == 0) {
+            VehiculoInfo vehiculo = flotaClient.obtenerVehiculo(incidencia.getPlaca());
+            if (MANTENIMIENTO.equals(vehiculo.estado())) {
+                flotaClient.pasarADisponible(incidencia.getPlaca(), "Incidencia " + incidencia.getId() + " cerrada");
+            }
+        }
+        return aRespuesta(incidencia);
     }
 
     // consultarIncidencias(idVehiculo): paginado, y el personal de sucursal solo ve las de su sede

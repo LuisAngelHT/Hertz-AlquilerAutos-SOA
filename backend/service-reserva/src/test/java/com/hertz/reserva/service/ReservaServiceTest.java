@@ -278,6 +278,45 @@ class ReservaServiceTest {
         verify(contratos).finalizar(r.getId());
     }
 
+    // El documento: en el check-out el vehículo pasa a ALQUILADO en flota antes de crear el contrato.
+    @Test
+    void checkOutMarcaElVehiculoAlquiladoAntesDeCrearElContrato() {
+        Reserva r = reserva(EstadoReserva.CONFIRMADA);
+        service.modificar(r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA);
+        var orden = org.mockito.Mockito.inOrder(flota, contratos);
+        orden.verify(flota).marcarAlquilado(eq("ABC-103"), anyString());
+        orden.verify(contratos).crear(r.getId());
+    }
+
+    @Test
+    void siElVehiculoNoSePuedeEntregarLaReservaQuedaComoEstaba() {
+        Reserva r = reserva(EstadoReserva.CONFIRMADA);
+        doThrow(ReservaException.transicionInvalida("El vehículo ABC-103 está en MANTENIMIENTO"))
+                .when(flota).marcarAlquilado(eq("ABC-103"), anyString());
+
+        assertEquals("TRANSICION_INVALIDA", error(() -> service.modificar(
+                r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA)).getCodigo());
+        assertEquals(EstadoReserva.CONFIRMADA, r.getEstado());   // no se tocó
+        verify(reservas, never()).save(any());
+        verify(contratos, never()).crear(any());
+    }
+
+    @Test
+    void devolverMarcaElVehiculoDevueltoEnFlota() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        service.modificar(r.getId(), cambioEstado(EstadoReserva.FINALIZADA), ADMIN);
+        verify(flota).marcarDevuelto(eq("ABC-103"), anyString());
+    }
+
+    @Test
+    void repetirLaDevolucionCompletaLosPasosQueQuedaronPendientes() {
+        Reserva r = reserva(EstadoReserva.FINALIZADA);
+        service.modificar(r.getId(), cambioEstado(EstadoReserva.FINALIZADA), ADMIN);
+        verify(flota).marcarDevuelto(eq("ABC-103"), anyString());
+        verify(contratos).finalizar(r.getId());
+        verify(reservas, never()).save(any());
+    }
+
     @Test
     void repetirCheckOutReintentaCrearElContratoSinCambiarLaReserva() {
         Reserva r = reserva(EstadoReserva.EN_CURSO);

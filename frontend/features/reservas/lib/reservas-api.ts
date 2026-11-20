@@ -100,7 +100,8 @@ function mensajeDeError(codigo: string | undefined, mensaje: string | undefined)
     case "RESERVA_NO_ENCONTRADA":
       return "La reserva no existe.";
     case "CLIENTE_NO_ENCONTRADO":
-      return "No se encontró el cliente. Regístralo primero en la sección Clientes.";
+      // El cliente web no tiene sección "Clientes": le damos un paso que sí puede hacer.
+      return "No encontramos la ficha de cliente de esta cuenta. Si eres personal, registra primero al cliente en la sección Clientes; si eres cliente, cierra sesión y vuelve a crear tu cuenta o pide ayuda en el mostrador.";
     case "ROL_NO_AUTORIZADO":
       return mensaje ?? "Tu rol no puede realizar esta acción.";
     case "SUCURSAL_NO_AUTORIZADA":
@@ -205,6 +206,11 @@ export function modificarReserva(
     method: "PUT",
     body: cambios,
   });
+}
+
+/** GET /api/v1/reserva/{id} — una reserva con su estado actual (para refrescarla tras un error a mitad de camino). */
+export function consultarReserva(sesion: Sesion, idReserva: string): Promise<Reserva> {
+  return solicitar<Reserva>(sesion, `/${encodeURIComponent(idReserva)}`);
 }
 
 /** POST /api/v1/reserva/{id}/cancelar — la deja CANCELADA y libera el vehículo. */

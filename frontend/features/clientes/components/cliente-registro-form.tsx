@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ArrowRight, CheckCircle2, LoaderCircle, UserPlus } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  UserPlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,6 +40,8 @@ export function ClienteRegistroForm({
     ...FORMULARIO_CLIENTE_VACIO,
   });
   const [password, setPassword] = useState("");
+  // Permite ver lo que se escribe para no equivocarse al crear la contraseña.
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [registrado, setRegistrado] = useState<Cliente | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -153,19 +162,36 @@ export function ClienteRegistroForm({
             >
               Crear contraseña para iniciar sesión
             </label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="Mínimo 8 caracteres"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              minLength={8}
-              maxLength={72}
-              autoComplete="new-password"
-              className="h-11 rounded-xl border-zinc-200 bg-white px-3 text-sm focus-visible:border-amber-400 focus-visible:ring-amber-300/40"
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={mostrarPassword ? "text" : "password"}
+                placeholder="Mínimo 8 caracteres"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                minLength={8}
+                maxLength={72}
+                autoComplete="new-password"
+                className="h-11 rounded-xl border-zinc-200 bg-white pr-12 pl-3 text-sm focus-visible:border-amber-400 focus-visible:ring-amber-300/40"
+              />
+              <button
+                type="button"
+                onClick={() => setMostrarPassword((visible) => !visible)}
+                aria-label={
+                  mostrarPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                }
+                aria-pressed={mostrarPassword}
+                className="absolute top-1/2 right-3 grid size-8 -translate-y-1/2 place-items-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+              >
+                {mostrarPassword ? (
+                  <EyeOff className="size-[18px]" aria-hidden="true" />
+                ) : (
+                  <Eye className="size-[18px]" aria-hidden="true" />
+                )}
+              </button>
+            </div>
             <p className="text-xs text-zinc-400">
               Usarás esta contraseña junto con tu correo para acceder a tu cuenta.
             </p>

@@ -140,19 +140,23 @@ public class FlotaService {
     @Transactional
     public VehiculoResponse actualizarEstado(String placa, EstadoVehiculo nuevoEstado, String rol,
                                              String usuario, String sucursalUsuario, String motivo) {
-        if (rol == null || !ROLES_ESCRITURA.contains(rol.trim().toUpperCase())) {
+        String rolNormalizado = rol == null ? "" : rol.trim().toUpperCase();
+        // SERVICIO es el rol interno con el que ServicioReserva marca el vehículo ALQUILADO en el
+        // check-out y DISPONIBLE en la devolución (el documento: flota es el único que cambia el estado).
+        boolean esServicio = ROL_SERVICIO.equals(rolNormalizado);
+        if (!esServicio && !ROLES_ESCRITURA.contains(rolNormalizado)) {
             throw FlotaException.rolNoAutorizado();
         }
         Vehiculo vehiculo = buscar(placa);
         // Dar de baja, o reactivar un vehículo dado de baja, solo lo hace el ADMINISTRADOR general.
         boolean tocaBaja = nuevoEstado == EstadoVehiculo.FUERA_DE_SERVICIO
                 || vehiculo.getEstado() == EstadoVehiculo.FUERA_DE_SERVICIO;
-        if (tocaBaja && !ROL_GENERAL.equals(rol.trim().toUpperCase())) {
+        if (tocaBaja && !ROL_GENERAL.equals(rolNormalizado)) {
             throw FlotaException.soloAdministradorGeneral();
         }
-        // Fuera del ADMINISTRADOR general, solo se modifican vehículos de la propia sucursal.
-        // Sin sucursal asignada no se puede comprobar, así que también se rechaza.
-        if (!ROL_GENERAL.equals(rol.trim().toUpperCase())
+        // Fuera del ADMINISTRADOR general y del servicio interno, solo se modifican vehículos de la
+        // propia sucursal. Sin sucursal asignada no se puede comprobar, así que también se rechaza.
+        if (!ROL_GENERAL.equals(rolNormalizado) && !esServicio
                 && (vacio(sucursalUsuario)
                     || !sucursalUsuario.trim().equalsIgnoreCase(vehiculo.getSucursal()))) {
             throw FlotaException.sucursalNoAutorizada(vehiculo.getPlaca(), vehiculo.getSucursal());
@@ -171,7 +175,7 @@ public class FlotaService {
         vehiculo.cambiarEstado(nuevoEstado);
         Vehiculo guardado = vehiculos.save(vehiculo);
         historial.save(new HistorialVehiculo(guardado.getPlaca(), estadoAnterior, nuevoEstado,
-                vacio(usuario) ? "DESCONOCIDO" : usuario.trim(), rol.trim().toUpperCase(),
+                vacio(usuario) ? "DESCONOCIDO" : usuario.trim(), rolNormalizado,
                 vacio(motivo) ? null : motivo.trim()));
         return VehiculoResponse.de(guardado);
     }

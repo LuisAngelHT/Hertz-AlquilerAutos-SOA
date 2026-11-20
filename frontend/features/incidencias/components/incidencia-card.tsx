@@ -1,4 +1,16 @@
-import { CalendarClock, CarFront, CircleDollarSign, MapPin, UserRound } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import {
+  CalendarClock,
+  CarFront,
+  CheckCircle2,
+  CircleDollarSign,
+  LoaderCircle,
+  MapPin,
+  UserRound,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { etiquetaSucursal } from "@/features/flota/lib/constants";
 import type { Incidencia } from "@/features/incidencias/types/incidencia";
@@ -19,7 +31,29 @@ function formatoFecha(fecha: string): string {
       }).format(valor);
 }
 
-export function IncidenciaCard({ incidencia }: { incidencia: Incidencia }) {
+interface IncidenciaCardProps {
+  incidencia: Incidencia;
+  /** Si se pasa, una incidencia ABIERTA muestra el botón "Cerrar incidencia". Debe lanzar un Error con el motivo si falla. */
+  onCerrar?: (incidencia: Incidencia) => Promise<void>;
+}
+
+export function IncidenciaCard({ incidencia, onCerrar }: IncidenciaCardProps) {
+  const [cerrando, setCerrando] = useState(false);
+  const [errorCierre, setErrorCierre] = useState<string | null>(null);
+
+  async function cerrar() {
+    if (!onCerrar) return;
+    setCerrando(true);
+    setErrorCierre(null);
+    try {
+      await onCerrar(incidencia);
+    } catch (cause) {
+      setErrorCierre(cause instanceof Error ? cause.message : "No se pudo cerrar la incidencia.");
+    } finally {
+      setCerrando(false);
+    }
+  }
+
   return (
     <Card className="rounded-2xl border-0 bg-white shadow-[0_14px_44px_-30px_rgba(24,24,27,0.35)] ring-1 ring-zinc-200/80">
       <CardContent className="space-y-4 p-5">
@@ -95,6 +129,34 @@ export function IncidenciaCard({ incidencia }: { incidencia: Incidencia }) {
           <p className="border-t border-zinc-100 pt-3 text-xs text-zinc-500">
             Contrato: <span className="font-mono">{incidencia.idContrato}</span>
           </p>
+        )}
+
+        {onCerrar && incidencia.estado === "ABIERTA" && (
+          <div className="space-y-2 border-t border-zinc-100 pt-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                disabled={cerrando}
+                onClick={cerrar}
+                className="h-9 rounded-xl bg-[#ffd400] px-4 text-sm font-semibold text-zinc-950 hover:bg-[#f2c900]"
+              >
+                {cerrando ? (
+                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                )}
+                Cerrar incidencia
+              </Button>
+              <p className="text-xs text-zinc-500">
+                Si es la última abierta de este vehículo, vuelve a quedar disponible.
+              </p>
+            </div>
+            {errorCierre && (
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                {errorCierre}
+              </p>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>
