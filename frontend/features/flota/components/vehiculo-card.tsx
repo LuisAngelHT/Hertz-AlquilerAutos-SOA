@@ -5,9 +5,13 @@ import { CarFront, History, LoaderCircle, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { AlquilerMostradorModal } from "@/features/flota/components/alquiler-mostrador-modal";
+import { DevolucionModal } from "@/features/reservas/components/devolucion-modal";
+import { listarReservas, type Reserva } from "@/features/reservas/lib/reservas-api";
 import {
   actualizarEstado,
   consultarHistorial,
+  consultarVehiculo,
   SesionExpiradaError,
   type CambioHistorial,
   type EstadoVehiculo,
@@ -93,6 +97,13 @@ export function VehiculoCard({
   const [pendiente, setPendiente] = useState<EstadoVehiculo | null>(null);
   // La baja es seria: pide una confirmación antes de ejecutarse.
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  // "Alquilar" abre el alquiler en mostrador (cliente, periodo y contrato), no solo cambia el estado.
+  const [alquilando, setAlquilando] = useState(false);
+  // "Registrar devolución" abre la devolución del alquiler en curso de este vehículo (con su revisión).
+  const [devolviendo, setDevolviendo] = useState<Reserva | null>(null);
+  const [buscandoAlquiler, setBuscandoAlquiler] = useState(false);
+  // No se halló un alquiler en curso: el vehículo figura alquilado pero sin reserva (por ejemplo, marcado a mano).
+  const [sinAlquiler, setSinAlquiler] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Motivo opcional del cambio de estado (una opción de la lista o "Otro" escrito a mano); se guarda en el historial.
   const [motivoOpcion, setMotivoOpcion] = useState("");
@@ -123,6 +134,39 @@ export function VehiculoCard({
     setHistorialAbierto(abrir);
     if (abrir && historial === null) {
       await cargarHistorial();
+    }
+  }
+
+  // Tras registrar el alquiler el vehiculo ya figura ALQUILADO: se vuelve a leer para refrescar la tarjeta.
+  async function refrescarTrasAlquiler() {
+    try {
+      onActualizado(await consultarVehiculo(sesion, vehiculo.placa));
+      if (historialAbierto) await cargarHistorial();
+    } catch (cause) {
+      if (cause instanceof SesionExpiradaError) onSesionExpirada();
+    }
+  }
+
+  // La devolución es parte del alquiler: se busca la reserva en curso de este vehículo para registrarla con su revisión.
+  async function buscarAlquilerEnCurso() {
+    setError(null);
+    setSinAlquiler(false);
+    setBuscandoAlquiler(true);
+    try {
+      const pagina = await listarReservas(sesion, { estado: "EN_CURSO", placa: vehiculo.placa, tamano: 5 });
+      if (pagina.reservas.length > 0) {
+        setDevolviendo(pagina.reservas[0]);
+      } else {
+        setSinAlquiler(true);
+      }
+    } catch (cause) {
+      if (cause instanceof SesionExpiradaError || (cause instanceof Error && cause.name === "SesionExpiradaError")) {
+        onSesionExpirada();
+        return;
+      }
+      setError(cause instanceof Error ? cause.message : "No se pudo buscar el alquiler de este vehículo.");
+    } finally {
+      setBuscandoAlquiler(false);
     }
   }
 
@@ -257,10 +301,13 @@ export function VehiculoCard({
               <Button
                 key={accion.destino}
                 type="button"
-                disabled={pendiente !== null}
-                onClick={() =>
-                  accion.destino === "FUERA_DE_SERVICIO" ? setConfirmandoBaja(true) : cambiarEstado(accion.destino)
-                }
+                disabled={pendiente !== null || buscandoAlquiler}
+                onClick={() => {
+                  if (accion.destino === "FUERA_DE_SERVICIO") setConfirmandoBaja(true);
+                  else if (vehiculo.estado === "DISPONIBLE" && accion.destino === "ALQUILADO") setAlquilando(true);
+                  else if (vehiculo.estado === "ALQUILADO" && accion.destino === "DISPONIBLE") void buscarAlquilerEnCurso();
+                  else void cambiarEstado(accion.destino);
+                }}
                 variant={accion.principal ? "default" : "outline"}
                 className={
                   accion.principal
@@ -268,12 +315,37 @@ export function VehiculoCard({
                     : "h-10 rounded-xl border-zinc-200 px-4"
                 }
               >
-                {pendiente === accion.destino && (
+                {(pendiente === accion.destino ||
+                  (buscandoAlquiler && vehiculo.estado === "ALQUILADO" && accion.destino === "DISPONIBLE")) && (
                   <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
                 )}
                 {accion.etiqueta}
               </Button>
             ))}
+            {sinAlquiler && (
+              <div className="w-full space-y-3 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                <p className="text-sm font-medium text-amber-900">
+                  No se encontró un alquiler en curso para este vehículo (quizá se marcó como alquilado a mano). Si
+                  lo marcas disponible igualmente, no se cierra ningún contrato ni se registra revisión.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    disabled={pendiente !== null}
+                    onClick={() => {
+                      setSinAlquiler(false);
+                      void cambiarEstado("DISPONIBLE");
+                    }}
+                    className="h-9 rounded-xl bg-amber-500 px-4 text-sm font-semibold text-zinc-950 hover:bg-amber-600"
+                  >
+                    Marcar disponible de todos modos
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setSinAlquiler(false)} className="h-9 rounded-xl px-4 text-sm">
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            )}
             {confirmandoBaja && (
               <div className="w-full space-y-3 rounded-xl bg-red-50/70 p-4 ring-1 ring-red-200">
                 <p className="text-sm font-medium text-red-800">
@@ -310,6 +382,26 @@ export function VehiculoCard({
             </Button>
           </div>
           </div>
+        )}
+
+        {alquilando && (
+          <AlquilerMostradorModal
+            vehiculo={vehiculo}
+            sesion={sesion}
+            onCerrar={() => setAlquilando(false)}
+            onAlquilado={() => void refrescarTrasAlquiler()}
+            onSesionExpirada={onSesionExpirada}
+          />
+        )}
+
+        {devolviendo && (
+          <DevolucionModal
+            reserva={devolviendo}
+            sesion={sesion}
+            onCerrar={() => setDevolviendo(null)}
+            onCompletada={() => void refrescarTrasAlquiler()}
+            onSesionExpirada={onSesionExpirada}
+          />
         )}
 
         {puedeEditar && historialAbierto && (

@@ -5,6 +5,8 @@ import { CalendarDays, CarFront, History, LoaderCircle, MapPin, UserRound } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { etiquetaCategoria, etiquetaSucursal } from "@/features/flota/lib/constants";
+import { DevolucionModal } from "@/features/reservas/components/devolucion-modal";
+import { EntregaModal } from "@/features/reservas/components/entrega-modal";
 import type { Sesion } from "@/features/flota/lib/session";
 import {
   ESTADOS_RESERVA,
@@ -15,7 +17,6 @@ import {
 import {
   cancelarReserva,
   consultarHistorialReserva,
-  consultarReserva,
   modificarReserva,
   SesionExpiradaError,
   type CambioReserva,
@@ -44,8 +45,8 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
   const [motivo, setMotivo] = useState("");
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // La reserva ya cambió de estado pero el contrato no se pudo crear/cerrar: se ofrece reintentar.
-  const [contratoPendiente, setContratoPendiente] = useState<"EN_CURSO" | "FINALIZADA" | null>(null);
+  // Entregar y recibir el vehículo se hacen en una ventana propia: llevan la revisión del vehículo.
+  const [ventana, setVentana] = useState<"entrega" | "devolucion" | null>(null);
   const [historial, setHistorial] = useState<CambioReserva[] | null>(null);
   const [verHistorial, setVerHistorial] = useState(false);
 
@@ -62,7 +63,6 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
     try {
       const actualizada = await accion();
       onActualizada(actualizada);
-      setContratoPendiente(null);
       setModo("ninguno");
       setMotivo("");
       if (verHistorial) setHistorial(await consultarHistorialReserva(sesion, reserva.idReserva));
@@ -71,25 +71,21 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
         onSesionExpirada();
         return;
       }
-      let texto = cause instanceof Error ? cause.message : "No se pudo completar la acción.";
-      // El backend cambia el estado de la reserva y después llama al servicio de contratos: si esa
-      // segunda parte falla, la reserva sí cambió. Se consulta el estado real para no mostrar uno falso.
-      try {
-        const actual = await consultarReserva(sesion, reserva.idReserva);
-        if (actual.estado !== reserva.estado) {
-          onActualizada(actual);
-          if (actual.estado === "EN_CURSO" || actual.estado === "FINALIZADA") {
-            setContratoPendiente(actual.estado);
-            const hecho = actual.estado === "EN_CURSO" ? "quedó en curso" : "quedó finalizada";
-            texto = `La reserva ya ${hecho}, pero no se pudo actualizar su contrato. ${texto}`;
-          }
-        }
-      } catch {
-        // Si tampoco se puede consultar, se deja el mensaje original.
-      }
-      setError(texto);
+      setError(cause instanceof Error ? cause.message : "No se pudo completar la acción.");
     } finally {
       setTrabajando(false);
+    }
+  }
+
+  /** Tras entregar o recibir el vehículo: se actualiza la lista y, si el historial está abierto, se refresca. */
+  async function alCompletarVentana(actualizada: Reserva) {
+    onActualizada(actualizada);
+    if (verHistorial) {
+      try {
+        setHistorial(await consultarHistorialReserva(sesion, reserva.idReserva));
+      } catch {
+        /* el historial se vuelve a pedir al reabrirlo */
+      }
     }
   }
 
@@ -183,10 +179,9 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
                   <Button
                     type="button"
                     disabled={trabajando}
-                    onClick={() => ejecutar(() => modificarReserva(sesion, reserva.idReserva, { estado: "EN_CURSO" }))}
+                    onClick={() => setVentana("entrega")}
                     className="h-9 rounded-xl bg-[#ffd400] px-4 text-sm font-semibold text-zinc-950 hover:bg-[#f2c900]"
                   >
-                    {trabajando && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
                     Entregar vehículo
                   </Button>
                 )}
@@ -202,27 +197,12 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
               <Button
                 type="button"
                 disabled={trabajando}
-                onClick={() => ejecutar(() => modificarReserva(sesion, reserva.idReserva, { estado: "FINALIZADA" }))}
+                onClick={() => setVentana("devolucion")}
                 className="h-9 rounded-xl bg-[#ffd400] px-4 text-sm font-semibold text-zinc-950 hover:bg-[#f2c900]"
               >
-                {trabajando && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
                 Registrar devolución
               </Button>
             )}
-          </div>
-        )}
-
-        {esPersonal && contratoPendiente && (
-          <div className="flex flex-wrap gap-2 border-t border-zinc-100 pt-4">
-            <Button
-              type="button"
-              disabled={trabajando}
-              onClick={() => ejecutar(() => modificarReserva(sesion, reserva.idReserva, { estado: contratoPendiente }))}
-              className="h-9 rounded-xl bg-[#ffd400] px-4 text-sm font-semibold text-zinc-950 hover:bg-[#f2c900]"
-            >
-              {trabajando && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
-              {contratoPendiente === "EN_CURSO" ? "Reintentar crear el contrato" : "Reintentar cerrar el contrato"}
-            </Button>
           </div>
         )}
 
@@ -335,6 +315,26 @@ export function ReservaItem({ reserva, sesion, esPersonal, onActualizada, onSesi
               </ol>
             )}
           </div>
+        )}
+
+        {ventana === "entrega" && (
+          <EntregaModal
+            reserva={reserva}
+            sesion={sesion}
+            onCerrar={() => setVentana(null)}
+            onCompletada={(actualizada) => void alCompletarVentana(actualizada)}
+            onSesionExpirada={onSesionExpirada}
+          />
+        )}
+        {ventana === "devolucion" && (
+          <DevolucionModal
+            reserva={reserva}
+            sesion={sesion}
+            onCerrar={() => setVentana(null)}
+            onCompletada={(actualizada) => void alCompletarVentana(actualizada)}
+            onSesionExpirada={onSesionExpirada}
+            onCompletarEntrega={() => setVentana("entrega")}
+          />
         )}
       </CardContent>
     </Card>

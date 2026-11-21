@@ -172,15 +172,15 @@ export function ContratosLista({
 
             <div className="space-y-2">
               <label htmlFor="filtro-contrato-reserva" className="text-sm font-semibold text-zinc-800">
-                ID de reserva
+                ID de la reserva
               </label>
               <Input
                 id="filtro-contrato-reserva"
                 value={idReserva}
                 onChange={(event) => setIdReserva(event.target.value)}
                 pattern={UUID_PATTERN}
-                title="Ingresa un UUID válido."
-                placeholder="UUID de la reserva"
+                title="Pega el ID completo (se copia desde la tarjeta del contrato)."
+                placeholder="ID de la reserva"
                 disabled={cargando}
                 className="h-11 rounded-xl border-zinc-200 bg-zinc-50/60 px-3 font-mono text-xs"
               />
@@ -188,15 +188,15 @@ export function ContratosLista({
 
             <div className="space-y-2">
               <label htmlFor="filtro-contrato-cliente" className="text-sm font-semibold text-zinc-800">
-                ID de cliente
+                ID del cliente
               </label>
               <Input
                 id="filtro-contrato-cliente"
                 value={idCliente}
                 onChange={(event) => setIdCliente(event.target.value)}
                 pattern={UUID_PATTERN}
-                title="Ingresa un UUID válido."
-                placeholder="UUID del cliente"
+                title="Pega el ID completo (se copia desde la tarjeta del contrato)."
+                placeholder="ID del cliente"
                 disabled={cargando}
                 className="h-11 rounded-xl border-zinc-200 bg-zinc-50/60 px-3 font-mono text-xs"
               />
@@ -276,7 +276,12 @@ export function ContratosLista({
             </div>
             <div className="space-y-4">
               {resultado.contratos.map((contrato) => (
-                <ContratoCard key={contrato.idContrato} contrato={contrato} />
+                <ContratoCard
+                  key={contrato.idContrato}
+                  contrato={contrato}
+                  sesion={sesion}
+                  onSesionExpirada={onSesionExpirada}
+                />
               ))}
             </div>
             <div className="flex items-center justify-between gap-3">

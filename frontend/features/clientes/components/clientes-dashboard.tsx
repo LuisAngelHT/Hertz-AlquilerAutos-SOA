@@ -29,6 +29,9 @@ function esPersonal(rol: string): boolean {
   return rol === "AGENTE" || rol === "ADMINISTRADOR" || rol === "ADMINISTRADOR_SUCURSAL";
 }
 
+// Nada que escuchar: solo sirve para saber si ya estamos en el navegador (ver "hidratado").
+const sinSuscripcion = () => () => {};
+
 export function ClientesDashboard() {
   const router = useRouter();
   const sesion = useSyncExternalStore(
@@ -36,14 +39,18 @@ export function ClientesDashboard() {
     getSessionSnapshot,
     getServerSessionSnapshot,
   );
+  // "hidratado" es false en el servidor y en el primer pintado del navegador, y pasa a true justo
+  // después. En ese primer pintado la sesión guardada todavía no se leyó (sale vacía), así que
+  // sin esta comprobación la pantalla creía que no había sesión y mandaba al inicio al recargar (F5).
+  const hidratado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
   // Primero se ve la lista completa de clientes; desde ahí se puede buscar uno o registrar otro.
   const [vista, setVista] = useState<VistaClientes>("todos");
 
   useEffect(() => {
-    if (!sesion) {
+    if (hidratado && !sesion) {
       router.replace("/");
     }
-  }, [router, sesion]);
+  }, [router, sesion, hidratado]);
 
   function cerrarSesion() {
     clearSession();

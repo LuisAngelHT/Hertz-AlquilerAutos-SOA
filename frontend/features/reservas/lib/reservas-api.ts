@@ -1,3 +1,4 @@
+import type { RevisionPayload } from "@/features/contratos/types/contrato";
 import type { Sesion } from "@/features/flota/lib/session";
 
 /**
@@ -62,9 +63,16 @@ export interface CambiosReserva {
   fechaFin?: string;
   estado?: EstadoReserva;
   motivo?: string;
+  /** Al entregar el vehículo (EN_CURSO): su revisión de salida y la confirmación de que el contrato fue firmado. */
+  entrega?: RevisionPayload;
+  contratoFirmado?: boolean;
+  /** Al recibirlo (FINALIZADA): su revisión de regreso (daños nuevos) y si el cliente está conforme. */
+  devolucion?: RevisionPayload & { clienteConforme: boolean };
 }
 
 export interface FiltroReservas {
+  /** Placa del vehículo asignado (por ejemplo, para hallar el alquiler en curso de un vehículo). */
+  placa?: string;
   tipoDocumento?: string;
   numeroDocumento?: string;
   estado?: EstadoReserva;
@@ -190,6 +198,7 @@ export function listarReservas(sesion: Sesion, filtro: FiltroReservas = {}): Pro
   if (filtro.estado) params.set("estado", filtro.estado);
   if (filtro.sucursal) params.set("sucursal", filtro.sucursal);
   if (filtro.recogenHoy) params.set("recogenHoy", "true");
+  if (filtro.placa?.trim()) params.set("placa", filtro.placa.trim().toUpperCase());
   if (filtro.pagina !== undefined) params.set("pagina", String(filtro.pagina));
   if (filtro.tamano !== undefined) params.set("tamano", String(filtro.tamano));
   const query = params.toString();

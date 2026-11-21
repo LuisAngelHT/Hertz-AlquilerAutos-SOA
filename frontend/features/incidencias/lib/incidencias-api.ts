@@ -1,6 +1,9 @@
 import { ApiRequestError, requestJson } from "@/lib/api-client";
 import type {
+  CierreIncidencia,
   EstadoIncidencia,
+  FichaTaller,
+  GuardarFicha,
   Incidencia,
   NuevaIncidencia,
   PaginaIncidencias,
@@ -25,6 +28,10 @@ export function mensajeErrorIncidencia(cause: unknown): string {
       return "Solo puedes registrar o consultar incidencias de vehículos de tu sucursal.";
     case "INCIDENCIA_NO_ENCONTRADA":
       return "No se encontró la incidencia solicitada.";
+    case "INCIDENCIA_CERRADA":
+      return "La incidencia ya está cerrada: su ficha solo se puede consultar.";
+    case "INCIDENCIA_INVALIDA":
+      return cause.message || "Revisa los datos de la ficha.";
     case "VEHICULO_ALQUILADO":
       return (
         cause.message ||
@@ -63,11 +70,44 @@ export function listarIncidencias(
   });
 }
 
-/** PUT /api/v1/incidencia/{id}/cerrar — la cierra y, si era la última abierta, el vehículo vuelve a DISPONIBLE. */
-export function cerrarIncidencia(token: string, idIncidencia: string): Promise<Incidencia> {
+/**
+ * PUT /api/v1/incidencia/{id}/cerrar — la cierra y, si era la última abierta, el vehículo vuelve a DISPONIBLE.
+ * Con {trabajoRealizado, costoFinal} deja constancia de lo que se reparó en la ficha del taller.
+ */
+export function cerrarIncidencia(
+  token: string,
+  idIncidencia: string,
+  cierre?: CierreIncidencia,
+): Promise<Incidencia> {
   return requestJson(`/api/v1/incidencia/${encodeURIComponent(idIncidencia)}/cerrar`, {
     method: "PUT",
     headers: authHeaders(token),
+    ...(cierre ? { body: JSON.stringify(cierre) } : {}),
+  });
+}
+
+/** GET /api/v1/incidencia/{id}/ficha — la ficha del taller (vacía si todavía no se llenó). */
+export function obtenerFicha(token: string, idIncidencia: string): Promise<FichaTaller> {
+  return requestJson(`/api/v1/incidencia/${encodeURIComponent(idIncidencia)}/ficha`, {
+    headers: authHeaders(token),
+  });
+}
+
+/** PUT /api/v1/incidencia/{id}/ficha — guarda diagnóstico, plan, costos y las listas de daños completas. */
+export function guardarFicha(token: string, idIncidencia: string, ficha: GuardarFicha): Promise<FichaTaller> {
+  return requestJson(`/api/v1/incidencia/${encodeURIComponent(idIncidencia)}/ficha`, {
+    method: "PUT",
+    headers: authHeaders(token),
+    body: JSON.stringify(ficha),
+  });
+}
+
+/** POST /api/v1/incidencia/{id}/ficha/seguimiento — agrega una nota de avance. */
+export function agregarSeguimiento(token: string, idIncidencia: string, nota: string): Promise<FichaTaller> {
+  return requestJson(`/api/v1/incidencia/${encodeURIComponent(idIncidencia)}/ficha/seguimiento`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ nota }),
   });
 }
 

@@ -4,15 +4,17 @@ import { useState } from "react";
 import {
   CalendarClock,
   CarFront,
-  CheckCircle2,
   CircleDollarSign,
-  LoaderCircle,
+  ClipboardList,
   MapPin,
   UserRound,
+  Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { etiquetaSucursal } from "@/features/flota/lib/constants";
+import type { Sesion } from "@/features/flota/lib/session";
+import { FichaTallerModal } from "@/features/incidencias/components/ficha-taller-modal";
 import type { Incidencia } from "@/features/incidencias/types/incidencia";
 
 const TIPO_ETIQUETA: Record<Incidencia["tipo"], string> = {
@@ -31,28 +33,22 @@ function formatoFecha(fecha: string): string {
       }).format(valor);
 }
 
-interface IncidenciaCardProps {
-  incidencia: Incidencia;
-  /** Si se pasa, una incidencia ABIERTA muestra el botón "Cerrar incidencia". Debe lanzar un Error con el motivo si falla. */
-  onCerrar?: (incidencia: Incidencia) => Promise<void>;
+function fechaCorta(iso: string): string {
+  const valor = new Date(`${iso}T12:00:00`);
+  return Number.isNaN(valor.getTime()) ? iso : new Intl.DateTimeFormat("es-PE", { dateStyle: "medium" }).format(valor);
 }
 
-export function IncidenciaCard({ incidencia, onCerrar }: IncidenciaCardProps) {
-  const [cerrando, setCerrando] = useState(false);
-  const [errorCierre, setErrorCierre] = useState<string | null>(null);
+interface IncidenciaCardProps {
+  incidencia: Incidencia;
+  sesion: Sesion;
+  /** Se llama con la incidencia ya actualizada (ficha guardada o incidencia cerrada). */
+  onActualizada: (incidencia: Incidencia) => void;
+  onSesionExpirada: () => void;
+}
 
-  async function cerrar() {
-    if (!onCerrar) return;
-    setCerrando(true);
-    setErrorCierre(null);
-    try {
-      await onCerrar(incidencia);
-    } catch (cause) {
-      setErrorCierre(cause instanceof Error ? cause.message : "No se pudo cerrar la incidencia.");
-    } finally {
-      setCerrando(false);
-    }
-  }
+export function IncidenciaCard({ incidencia, sesion, onActualizada, onSesionExpirada }: IncidenciaCardProps) {
+  const [fichaAbierta, setFichaAbierta] = useState(false);
+  const abierta = incidencia.estado === "ABIERTA";
 
   return (
     <Card className="rounded-2xl border-0 bg-white shadow-[0_14px_44px_-30px_rgba(24,24,27,0.35)] ring-1 ring-zinc-200/80">
@@ -78,7 +74,7 @@ export function IncidenciaCard({ incidencia, onCerrar }: IncidenciaCardProps) {
                   : "bg-emerald-50 text-emerald-700 ring-emerald-200"
               }`}
             >
-              {incidencia.estado === "ABIERTA" ? "Abierta" : "Cerrada"}
+              {abierta ? "Abierta · en taller" : "Cerrada"}
             </span>
           </div>
         </div>
@@ -131,32 +127,37 @@ export function IncidenciaCard({ incidencia, onCerrar }: IncidenciaCardProps) {
           </p>
         )}
 
-        {onCerrar && incidencia.estado === "ABIERTA" && (
-          <div className="space-y-2 border-t border-zinc-100 pt-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                type="button"
-                disabled={cerrando}
-                onClick={cerrar}
-                className="h-9 rounded-xl bg-[#ffd400] px-4 text-sm font-semibold text-zinc-950 hover:bg-[#f2c900]"
-              >
-                {cerrando ? (
-                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                ) : (
-                  <CheckCircle2 className="size-4" aria-hidden="true" />
-                )}
-                Cerrar incidencia
-              </Button>
-              <p className="text-xs text-zinc-500">
-                Si es la última abierta de este vehículo, vuelve a quedar disponible.
-              </p>
-            </div>
-            {errorCierre && (
-              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                {errorCierre}
+        <div className="space-y-2 border-t border-zinc-100 pt-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              onClick={() => setFichaAbierta(true)}
+              className="h-9 rounded-xl bg-[#ffd400] px-4 text-sm font-semibold text-zinc-950 hover:bg-[#f2c900]"
+            >
+              <ClipboardList className="size-4" aria-hidden="true" />
+              {abierta ? "Ficha del taller" : "Ver ficha del taller"}
+            </Button>
+            {abierta && (
+              <p className="flex items-center gap-1.5 text-xs text-zinc-500">
+                <Wrench className="size-3.5 text-zinc-400" aria-hidden="true" />
+                {incidencia.fechaSalidaPrevista
+                  ? `Sale del taller el ${fechaCorta(incidencia.fechaSalidaPrevista)}`
+                  : incidencia.tieneFicha
+                    ? "Aún sin días estimados de reparación"
+                    : "Sin diagnóstico todavía: abre la ficha para registrarlo"}
               </p>
             )}
           </div>
+        </div>
+
+        {fichaAbierta && (
+          <FichaTallerModal
+            incidencia={incidencia}
+            sesion={sesion}
+            onCerrar={() => setFichaAbierta(false)}
+            onActualizada={onActualizada}
+            onSesionExpirada={onSesionExpirada}
+          />
         )}
       </CardContent>
     </Card>
