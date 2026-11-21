@@ -4,7 +4,11 @@ import com.hertz.reserva.client.ClienteClient;
 import com.hertz.reserva.client.ClienteClient.ClienteInfo;
 import com.hertz.reserva.client.ContratoClient;
 import com.hertz.reserva.client.FlotaClient;
+import com.hertz.reserva.client.IncidenciaClient;
 import com.hertz.reserva.dto.HistorialReservaResponse;
+import com.hertz.reserva.dto.DanoDto;
+import com.hertz.reserva.dto.DevolucionDto;
+import com.hertz.reserva.dto.ItemDto;
 import com.hertz.reserva.dto.ModificarReservaRequest;
 import com.hertz.reserva.dto.PaginaReservasResponse;
 import com.hertz.reserva.dto.ReservaRequest;
@@ -27,6 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -90,12 +96,14 @@ public class ReservaService {
     private final FlotaClient flota;
     private final ClienteClient clientes;
     private final ContratoClient contratos;
+    private final IncidenciaClient incidencias;
     private final TransactionTemplate tx;
     private final Clock reloj;
     private final int maxDias;
 
     public ReservaService(ReservaRepository reservas, HistorialReservaRepository historial,
                           FlotaClient flota, ClienteClient clientes, ContratoClient contratos,
+                          IncidenciaClient incidencias,
                           PlatformTransactionManager transacciones, Clock reloj,
                           @Value("${reserva.max-dias:60}") int maxDias) {
         this.reservas = reservas;
@@ -103,6 +111,7 @@ public class ReservaService {
         this.flota = flota;
         this.clientes = clientes;
         this.contratos = contratos;
+        this.incidencias = incidencias;
         this.tx = new TransactionTemplate(transacciones);
         this.reloj = reloj;
         this.maxDias = maxDias;
@@ -164,6 +173,13 @@ public class ReservaService {
     public PaginaReservasResponse listar(String tipoDocumento, String numeroDocumento, UUID idCliente,
                                          EstadoReserva estado, String sucursal, Boolean recogenHoy,
                                          Integer pagina, Integer tamano, Actor actor) {
+        return listar(tipoDocumento, numeroDocumento, idCliente, estado, sucursal, recogenHoy, null, pagina, tamano, actor);
+    }
+
+    /** Igual que la anterior, y además permite filtrar por la placa del vehículo asignado (la usa Flota). */
+    public PaginaReservasResponse listar(String tipoDocumento, String numeroDocumento, UUID idCliente,
+                                         EstadoReserva estado, String sucursal, Boolean recogenHoy, String placa,
+                                         Integer pagina, Integer tamano, Actor actor) {
         String rol = actor.rolNormalizado();
         if (!ROLES_PERSONAL.contains(rol) && !ROL_CLIENTE.equals(rol) && !ROL_SERVICIO.equals(rol)) {
             throw ReservaException.rolNoAutorizado("Tu rol no puede consultar reservas");
@@ -190,6 +206,7 @@ public class ReservaService {
                 ? (esVacio(actor.sucursal()) ? "-" : actor.sucursal().trim().toUpperCase()) : null;
         final LocalDate hoy = LocalDate.now(reloj);
         final boolean soloHoy = Boolean.TRUE.equals(recogenHoy);
+        final String placaFinal = esVacio(placa) ? null : placa.trim().toUpperCase();
         Specification<Reserva> filtros = (root, consulta, cb) -> {
             List<Predicate> condiciones = new ArrayList<>();
             if (sedeDelPersonal != null) {
@@ -203,6 +220,7 @@ public class ReservaService {
             if (clienteFinal != null) condiciones.add(cb.equal(root.get("idCliente"), clienteFinal));
             if (estado != null) condiciones.add(cb.equal(root.get("estado"), estado));
             if (sucursalFinal != null) condiciones.add(cb.equal(root.get("sucursalRecojo"), sucursalFinal));
+            if (placaFinal != null) condiciones.add(cb.equal(root.get("placaAsignada"), placaFinal));
             return cb.and(condiciones.toArray(new Predicate[0]));
         };
         int paginaPedida = Math.max(0, pagina == null ? 0 : pagina);
@@ -237,7 +255,7 @@ public class ReservaService {
             throw ReservaException.solicitudInvalida("Cambia las fechas/categoria o el estado, pero no ambos a la vez");
         }
         if (solicitaEstado) {
-            return cambiarEstado(reserva, cambios.estado(), cambios.motivo(), actor);
+            return cambiarEstado(reserva, cambios, actor);
         }
         if (!cambiaDatos) {
             return ReservaResponse.de(reserva);   // nada que cambiar
@@ -251,7 +269,9 @@ public class ReservaService {
         return cancelarReserva(reserva, motivo, actor);
     }
 
-    private ReservaResponse cambiarEstado(Reserva reserva, EstadoReserva nuevo, String motivo, Actor actor) {
+    private ReservaResponse cambiarEstado(Reserva reserva, ModificarReservaRequest cambios, Actor actor) {
+        EstadoReserva nuevo = cambios.estado();
+        String motivo = cambios.motivo();
         String rol = actor.rolNormalizado();
         if (nuevo == EstadoReserva.CANCELADA) {
             return cancelarReserva(reserva, motivo, actor);
@@ -259,14 +279,27 @@ public class ReservaService {
         if (ROL_CLIENTE.equals(rol)) {
             throw ReservaException.rolNoAutorizado("El cliente solo puede cancelar su reserva");
         }
+        // Entregar y recibir el vehículo son actos serios: llevan la revisión del vehículo (y, al entregar, la
+        // firma del contrato). Se exige ANTES de tocar nada, para no dejar la reserva a medias.
+        if (nuevo == EstadoReserva.EN_CURSO) {
+            exigirEntrega(cambios);
+        } else if (nuevo == EstadoReserva.FINALIZADA) {
+            exigirDevolucion(cambios);
+        }
         if (reserva.getEstado() == nuevo) {
-            return sincronizarContrato(reserva, nuevo);
+            return sincronizarContrato(reserva, cambios, actor);
         }
         if (!reserva.getEstado().puedePasarA(nuevo)) {
             throw ReservaException.transicionInvalida(
                     "Una reserva " + reserva.getEstado() + " no puede pasar a " + nuevo);
         }
         EstadoReserva anterior = reserva.getEstado();
+        UUID idContrato = null;
+        if (nuevo == EstadoReserva.FINALIZADA) {
+            // El contrato revisa la devolución (kilometraje, conformidad...) y se cierra PRIMERO: si algo no cuadra
+            // se rechaza aquí y la reserva y el vehículo quedan como estaban, sin cambios a medias.
+            idContrato = contratos.finalizar(reserva.getId(), actor.usuario(), cambios.devolucion());
+        }
         if (nuevo == EstadoReserva.EN_CURSO) {
             // Según el documento, en el check-out el vehículo pasa a ALQUILADO en flota ANTES del contrato.
             // Se hace antes de tocar la reserva: si el vehículo no se puede entregar (por ejemplo, está en
@@ -278,27 +311,179 @@ public class ReservaService {
         if (nuevo == EstadoReserva.FINALIZADA) {
             liberarSinFallar(reserva.getId());   // el vehículo volvió: que quede libre para otras reservas
             recibirVehiculo(reserva);            // y en flota deja de figurar como ALQUILADO
+            // Si volvió con daños nuevos, se registra su incidencia: eso lo manda a MANTENIMIENTO hasta repararlo.
+            registrarIncidenciaPorDanos(reserva, idContrato, cambios.devolucion(), actor);
         }
         if (nuevo == EstadoReserva.EN_CURSO) {
-            contratos.crear(reserva.getId());
-        } else if (nuevo == EstadoReserva.FINALIZADA) {
-            contratos.finalizar(reserva.getId());
+            contratos.crear(reserva.getId(), actor.usuario(), cambios.entrega());
         }
         return respuesta;
     }
 
     // Reintento de una entrega o devolución que quedó a medias (la reserva ya cambió de estado pero falló
     // un paso posterior). Todos los pasos son idempotentes, así que repetirlos es seguro.
-    private ReservaResponse sincronizarContrato(Reserva reserva, EstadoReserva estado) {
-        if (estado == EstadoReserva.EN_CURSO) {
+    private ReservaResponse sincronizarContrato(Reserva reserva, ModificarReservaRequest cambios, Actor actor) {
+        if (cambios.estado() == EstadoReserva.EN_CURSO) {
             entregarVehiculo(reserva);
-            contratos.crear(reserva.getId());
-        } else if (estado == EstadoReserva.FINALIZADA) {
+            contratos.crear(reserva.getId(), actor.usuario(), cambios.entrega());
+        } else if (cambios.estado() == EstadoReserva.FINALIZADA) {
+            UUID idContrato = contratos.finalizar(reserva.getId(), actor.usuario(), cambios.devolucion());
             liberarSinFallar(reserva.getId());
             recibirVehiculo(reserva);
-            contratos.finalizar(reserva.getId());
+            registrarIncidenciaPorDanos(reserva, idContrato, cambios.devolucion(), actor);   // no duplica si ya existe
         }
         return ReservaResponse.de(reserva);
+    }
+
+    // ---------------------------------------------------------------- daños de la devolución -> incidencia
+
+    /**
+     * Si el vehículo volvió con daños nuevos, crea UNA incidencia con todos ellos (ServicioIncidencia manda el
+     * vehículo a MANTENIMIENTO). Va después de dejarlo disponible, porque esa incidencia no se puede registrar
+     * mientras el vehículo figura alquilado. Repetirlo es seguro: si el contrato ya tiene su incidencia, no crea otra.
+     */
+    private void registrarIncidenciaPorDanos(Reserva reserva, UUID idContrato, DevolucionDto devolucion, Actor actor) {
+        List<DanoDto> danos = devolucion == null || devolucion.danos() == null ? List.of() : devolucion.danos();
+        List<ItemDto> faltantes = devolucion == null ? List.of() : itemsNuevosConProblema(devolucion.inventario());
+        if (reserva.getPlacaAsignada() == null || (danos.isEmpty() && faltantes.isEmpty())) {
+            return;
+        }
+        BigDecimal total = java.util.stream.Stream.concat(
+                        danos.stream().map(DanoDto::costoEstimado), faltantes.stream().map(ItemDto::costoEstimado))
+                .filter(c -> c != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        try {
+            incidencias.registrarDanos(reserva.getPlacaAsignada(), idContrato, tipoIncidencia(danos),
+                    descripcionDanos(reserva, danos, faltantes), total.signum() > 0 ? total : null, actor.usuario());
+        } catch (ReservaException ex) {
+            // La devolución ya quedó registrada: se avisa con claridad y repetirla completa lo que falta.
+            throw new ReservaException(ex.getCodigo(), ex.getStatus(),
+                    "La devolución quedó registrada, pero no se pudo crear la incidencia de los daños (el vehículo "
+                            + "aún no pasó a mantenimiento): " + ex.getMessage()
+                            + ". Vuelve a registrar la devolución para reintentar.");
+        }
+    }
+
+    /** Un daño grave se trata como siniestro; el resto, como daño. */
+    static String tipoIncidencia(List<DanoDto> danos) {
+        return danos.stream().anyMatch(d -> "GRAVE".equals(d.gravedad())) ? "SINIESTRO" : "DANO";
+    }
+
+    /** Elementos del inventario que faltan o vuelven dañados y que NO estaban así al entregar (la pantalla los marca "nuevo"). */
+    static List<ItemDto> itemsNuevosConProblema(List<ItemDto> inventario) {
+        if (inventario == null) {
+            return List.of();
+        }
+        return inventario.stream()
+                .filter(i -> !"OK".equals(i.estado()) && (Boolean.TRUE.equals(i.nuevo()) || i.costoEstimado() != null))
+                .toList();
+    }
+
+    static String descripcionDanos(Reserva reserva, List<DanoDto> danos) {
+        return descripcionDanos(reserva, danos, List.of());
+    }
+
+    /** Texto de la incidencia (máximo 500 caracteres, que es lo que admite ServicioIncidencia). */
+    static String descripcionDanos(Reserva reserva, List<DanoDto> danos, List<ItemDto> faltantes) {
+        String cliente = reserva.getClienteNombre() == null || reserva.getClienteNombre().isBlank()
+                ? "el cliente" : reserva.getClienteNombre().trim();
+        StringBuilder texto = new StringBuilder("Daños causados en el alquiler de ").append(cliente)
+                .append(" (reserva ").append(reserva.getId().toString(), 0, 8).append("): ");
+        for (int i = 0; i < danos.size(); i++) {
+            DanoDto dano = danos.get(i);
+            if (i > 0) {
+                texto.append("; ");
+            }
+            texto.append(i + 1).append(") ").append(zonaTexto(dano.zona()))
+                    .append(" (").append(dano.gravedad() == null ? "" : dano.gravedad().toLowerCase()).append("): ")
+                    .append(dano.descripcion() == null ? "" : dano.descripcion().trim());
+            if (dano.costoEstimado() != null) {
+                texto.append(" - S/ ").append(dano.costoEstimado().setScale(2, RoundingMode.HALF_UP).toPlainString());
+            }
+        }
+        if (!faltantes.isEmpty()) {
+            texto.append(danos.isEmpty() ? "" : ". ").append(danos.isEmpty() ? "Faltantes o dañados al devolver: " : "Faltantes o dañados: ");
+            for (int i = 0; i < faltantes.size(); i++) {
+                ItemDto item = faltantes.get(i);
+                texto.append(i > 0 ? ", " : "").append(itemTexto(item.item()))
+                        .append("DANADO".equals(item.estado()) ? " (dañado)" : " (falta)");
+                if (item.costoEstimado() != null) {
+                    texto.append(" - S/ ").append(item.costoEstimado().setScale(2, RoundingMode.HALF_UP).toPlainString());
+                }
+            }
+        }
+        return texto.length() <= 500 ? texto.toString() : texto.substring(0, 499) + "…";
+    }
+
+    private static String itemTexto(String item) {
+        return switch (item == null ? "" : item) {
+            case "LUCES_PRINCIPALES" -> "Luces principales";
+            case "LUCES_FRENO_DIRECCIONALES" -> "Luces de freno y direccionales";
+            case "LIMPIAPARABRISAS" -> "Limpiaparabrisas";
+            case "ESPEJOS_LATERALES" -> "Espejos laterales";
+            case "PARABRISAS_Y_LUNAS" -> "Parabrisas y lunas";
+            case "LLANTAS_Y_TAPONES" -> "Llantas y tapones";
+            case "TAPON_GASOLINA" -> "Tapón de gasolina";
+            case "PLACAS" -> "Placas";
+            case "RADIO" -> "Radio";
+            case "ESPEJO_RETROVISOR" -> "Espejo retrovisor";
+            case "CINTURONES" -> "Cinturones";
+            case "TAPETES" -> "Tapetes";
+            case "ASIENTOS_Y_FUNDAS" -> "Asientos y fundas";
+            case "MANIJAS_Y_SEGUROS" -> "Manijas y seguros";
+            case "AIRE_ACONDICIONADO" -> "Aire acondicionado";
+            case "GATA" -> "Gata";
+            case "LLAVE_DE_RUEDAS" -> "Llave de ruedas";
+            case "LLANTA_DE_AUXILIO" -> "Llanta de auxilio";
+            case "TRIANGULO" -> "Triángulo";
+            case "EXTINTOR" -> "Extintor";
+            case "BOTIQUIN" -> "Botiquín";
+            case "SOAT" -> "SOAT";
+            case "REVISION_TECNICA" -> "Revisión técnica";
+            case "TARJETA_DE_PROPIEDAD" -> "Tarjeta de propiedad";
+            default -> item == null ? "Elemento" : item;
+        };
+    }
+
+    private static String zonaTexto(String zona) {
+        if (zona == null) {
+            return "Vehículo";
+        }
+        return switch (zona) {
+            case "FRONTAL" -> "Parte delantera";
+            case "POSTERIOR" -> "Parte trasera";
+            case "LATERAL_IZQUIERDO" -> "Lado izquierdo";
+            case "LATERAL_DERECHO" -> "Lado derecho";
+            case "TECHO" -> "Techo";
+            case "LUNAS" -> "Lunas y espejos";
+            case "LLANTAS" -> "Llantas y aros";
+            case "INTERIOR" -> "Interior";
+            default -> "Otra zona";
+        };
+    }
+
+    private static void exigirEntrega(ModificarReservaRequest cambios) {
+        if (cambios.entrega() == null) {
+            throw ReservaException.solicitudInvalida(
+                    "Para entregar el vehículo registra su revisión: kilometraje, combustible y daños que ya tenga");
+        }
+        if (!Boolean.TRUE.equals(cambios.contratoFirmado())) {
+            throw ReservaException.solicitudInvalida(
+                    "Confirma que el contrato impreso fue firmado por el cliente antes de entregar el vehículo");
+        }
+    }
+
+    private static void exigirDevolucion(ModificarReservaRequest cambios) {
+        DevolucionDto devolucion = cambios.devolucion();
+        if (devolucion == null) {
+            throw ReservaException.solicitudInvalida(
+                    "Para recibir el vehículo registra su revisión: kilometraje, combustible y daños nuevos");
+        }
+        if (!Boolean.TRUE.equals(devolucion.clienteConforme())
+                && (devolucion.observaciones() == null || devolucion.observaciones().isBlank())) {
+            throw ReservaException.solicitudInvalida(
+                    "Si el cliente no está conforme, explica el motivo en las observaciones");
+        }
     }
 
     private void entregarVehiculo(Reserva reserva) {

@@ -39,6 +39,8 @@ services:
     url: ${CLIENTE_SERVICE_URL:http://localhost:8081}
   contrato:
     url: ${CONTRATO_SERVICE_URL:http://localhost:8086}
+  incidencia:
+    url: ${INCIDENCIA_SERVICE_URL:http://localhost:8085}
 
 # Reglas de negocio ajustables.
 reserva:

@@ -5,6 +5,11 @@ import com.hertz.reserva.client.ClienteClient.ClienteInfo;
 import com.hertz.reserva.client.ContratoClient;
 import com.hertz.reserva.client.FlotaClient;
 import com.hertz.reserva.client.FlotaClient.Apartado;
+import com.hertz.reserva.client.IncidenciaClient;
+import com.hertz.reserva.dto.DanoDto;
+import com.hertz.reserva.dto.DevolucionDto;
+import com.hertz.reserva.dto.EntregaDto;
+import com.hertz.reserva.dto.ItemDto;
 import com.hertz.reserva.dto.ModificarReservaRequest;
 import com.hertz.reserva.dto.ReservaRequest;
 import com.hertz.reserva.entity.EstadoReserva;
@@ -24,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -32,6 +38,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -65,6 +72,7 @@ class ReservaServiceTest {
     private FlotaClient flota;
     private ClienteClient clientes;
     private ContratoClient contratos;
+    private IncidenciaClient incidencias;
     private ReservaService service;
 
     @BeforeEach
@@ -74,8 +82,9 @@ class ReservaServiceTest {
         flota = Mockito.mock(FlotaClient.class);
         clientes = Mockito.mock(ClienteClient.class);
         contratos = Mockito.mock(ContratoClient.class);
+        incidencias = Mockito.mock(IncidenciaClient.class);
         Clock reloj = Clock.fixed(HOY.atStartOfDay(ZoneId.of("America/Lima")).toInstant(), ZoneId.of("America/Lima"));
-        service = new ReservaService(reservas, historial, flota, clientes, contratos,
+        service = new ReservaService(reservas, historial, flota, clientes, contratos, incidencias,
                 Mockito.mock(PlatformTransactionManager.class), reloj, 60);
 
         when(reservas.save(any(Reserva.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -110,8 +119,19 @@ class ReservaServiceTest {
         return r;
     }
 
+    // Revision del vehiculo al entregarlo y al recibirlo (kilometraje, combustible y danos).
+    private static final EntregaDto ENTREGA = new EntregaDto(12450, "LLENO",
+            List.of(new DanoDto("FRONTAL", "Rayón en el parachoques", "LEVE", null)), "Sin novedades");
+    private static final DevolucionDto DEVOLUCION = new DevolucionDto(12980, "MEDIO",
+            List.of(new DanoDto("LATERAL_DERECHO", "Abolladura en la puerta", "MODERADO", new BigDecimal("120.50"))),
+            null, true);
+
+    // Entregar (EN_CURSO) lleva la revision de salida y la firma del contrato; recibir (FINALIZADA), la de regreso.
     private static ModificarReservaRequest cambioEstado(EstadoReserva e) {
-        return new ModificarReservaRequest(null, null, null, e, null);
+        return new ModificarReservaRequest(null, null, null, e, null,
+                e == EstadoReserva.EN_CURSO ? ENTREGA : null,
+                e == EstadoReserva.EN_CURSO ? Boolean.TRUE : null,
+                e == EstadoReserva.FINALIZADA ? DEVOLUCION : null);
     }
 
     private static ReservaException error(Runnable accion) {
@@ -257,7 +277,7 @@ class ReservaServiceTest {
         Reserva r = reserva(EstadoReserva.CONFIRMADA);
         var resp = service.modificar(r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA);
         assertEquals(EstadoReserva.EN_CURSO, resp.estado());
-        verify(contratos).crear(r.getId());
+        verify(contratos).crear(r.getId(), "agente@hertz.test", ENTREGA);   // el contrato queda a nombre del empleado y con su revision
         verify(flota, never()).liberar(any());   // el vehiculo sigue apartado mientras esta en curso
     }
 
@@ -275,7 +295,7 @@ class ReservaServiceTest {
         var resp = service.modificar(r.getId(), cambioEstado(EstadoReserva.FINALIZADA), ADMIN);
         assertEquals(EstadoReserva.FINALIZADA, resp.estado());
         verify(flota).liberar(r.getId().toString());
-        verify(contratos).finalizar(r.getId());
+        verify(contratos).finalizar(r.getId(), "admin@hertz.test", DEVOLUCION);
     }
 
     // El documento: en el check-out el vehículo pasa a ALQUILADO en flota antes de crear el contrato.
@@ -285,7 +305,7 @@ class ReservaServiceTest {
         service.modificar(r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA);
         var orden = org.mockito.Mockito.inOrder(flota, contratos);
         orden.verify(flota).marcarAlquilado(eq("ABC-103"), anyString());
-        orden.verify(contratos).crear(r.getId());
+        orden.verify(contratos).crear(eq(r.getId()), anyString(), any());
     }
 
     @Test
@@ -298,7 +318,7 @@ class ReservaServiceTest {
                 r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA)).getCodigo());
         assertEquals(EstadoReserva.CONFIRMADA, r.getEstado());   // no se tocó
         verify(reservas, never()).save(any());
-        verify(contratos, never()).crear(any());
+        verify(contratos, never()).crear(any(), any(), any());
     }
 
     @Test
@@ -313,7 +333,7 @@ class ReservaServiceTest {
         Reserva r = reserva(EstadoReserva.FINALIZADA);
         service.modificar(r.getId(), cambioEstado(EstadoReserva.FINALIZADA), ADMIN);
         verify(flota).marcarDevuelto(eq("ABC-103"), anyString());
-        verify(contratos).finalizar(r.getId());
+        verify(contratos).finalizar(r.getId(), "admin@hertz.test", DEVOLUCION);
         verify(reservas, never()).save(any());
     }
 
@@ -321,7 +341,7 @@ class ReservaServiceTest {
     void repetirCheckOutReintentaCrearElContratoSinCambiarLaReserva() {
         Reserva r = reserva(EstadoReserva.EN_CURSO);
         service.modificar(r.getId(), cambioEstado(EstadoReserva.EN_CURSO), ADMIN);
-        verify(contratos).crear(r.getId());
+        verify(contratos).crear(r.getId(), "admin@hertz.test", ENTREGA);
         verify(reservas, never()).save(any());
     }
 
@@ -329,13 +349,13 @@ class ReservaServiceTest {
     void repetirCheckOutCompletaLaCreacionDelContratoSiElPrimerIntentoFallo() {
         Reserva r = reserva(EstadoReserva.CONFIRMADA);
         doThrow(ReservaException.servicioNoDisponible("ServicioContrato", "intenta nuevamente"))
-                .doNothing().when(contratos).crear(r.getId());
+                .doNothing().when(contratos).crear(r.getId(), "agente@hertz.test", ENTREGA);
 
         assertEquals("SERVICIO_NO_DISPONIBLE", error(() -> service.modificar(
                 r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA)).getCodigo());
         assertEquals(EstadoReserva.EN_CURSO,
                 service.modificar(r.getId(), cambioEstado(EstadoReserva.EN_CURSO), AGENTE_LIMA).estado());
-        verify(contratos, times(2)).crear(r.getId());
+        verify(contratos, times(2)).crear(r.getId(), "agente@hertz.test", ENTREGA);
     }
 
     @Test
@@ -608,5 +628,187 @@ class ReservaServiceTest {
         var elegido = new ReservaRequest(CLIENTE, "SUV", LIMA, LIMA, INI, FIN, "ABC-103");
         assertEquals("VEHICULO_ELEGIDO_NO_DISPONIBLE", error(() -> service.crear(elegido, AGENTE_LIMA)).getCodigo());
         verify(reservas, never()).save(any());
+    }
+
+    // ---------------------------------------------------------------- entrega y devolucion: revision obligatoria
+
+    @Test
+    void noSeEntregaSinLaRevisionDelVehiculo() {
+        Reserva r = reserva(EstadoReserva.CONFIRMADA);
+        var sinRevision = new ModificarReservaRequest(null, null, null, EstadoReserva.EN_CURSO, null, null, true, null);
+
+        assertEquals("SOLICITUD_INVALIDA", error(() -> service.modificar(r.getId(), sinRevision, AGENTE_LIMA)).getCodigo());
+
+        assertEquals(EstadoReserva.CONFIRMADA, r.getEstado());
+        verify(flota, never()).marcarAlquilado(any(), any());   // el vehiculo no sale
+        verify(contratos, never()).crear(any(), any(), any());
+        verify(reservas, never()).save(any());
+    }
+
+    @Test
+    void noSeEntregaSinConfirmarQueElContratoFueFirmado() {
+        Reserva r = reserva(EstadoReserva.CONFIRMADA);
+        for (Boolean firmado : new Boolean[] {false, null}) {
+            var sinFirma = new ModificarReservaRequest(null, null, null, EstadoReserva.EN_CURSO, null, ENTREGA, firmado, null);
+            assertEquals("SOLICITUD_INVALIDA", error(() -> service.modificar(r.getId(), sinFirma, AGENTE_LIMA)).getCodigo());
+        }
+        assertEquals(EstadoReserva.CONFIRMADA, r.getEstado());
+        verify(flota, never()).marcarAlquilado(any(), any());
+        verify(contratos, never()).crear(any(), any(), any());
+    }
+
+    @Test
+    void noSeRecibeElVehiculoSinLaRevisionDeDevolucion() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        var sinRevision = new ModificarReservaRequest(null, null, null, EstadoReserva.FINALIZADA, null);
+
+        assertEquals("SOLICITUD_INVALIDA", error(() -> service.modificar(r.getId(), sinRevision, ADMIN)).getCodigo());
+
+        assertEquals(EstadoReserva.EN_CURSO, r.getEstado());
+        verify(flota, never()).marcarDevuelto(any(), any());
+        verify(contratos, never()).finalizar(any(), any(), any());
+    }
+
+    @Test
+    void siElClienteNoEstaConformeLaDevolucionExigeElMotivo() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        var sinMotivo = new ModificarReservaRequest(null, null, null, EstadoReserva.FINALIZADA, null, null, null,
+                new DevolucionDto(12980, "MEDIO", List.of(), "  ", false));
+
+        assertEquals("SOLICITUD_INVALIDA", error(() -> service.modificar(r.getId(), sinMotivo, ADMIN)).getCodigo());
+
+        assertEquals(EstadoReserva.EN_CURSO, r.getEstado());
+        verify(contratos, never()).finalizar(any(), any(), any());
+    }
+
+    @Test
+    void siElContratoRechazaLaDevolucionLaReservaYElVehiculoQuedanComoEstaban() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        doThrow(ReservaException.solicitudInvalida("El kilometraje al devolver (100) no puede ser menor al de la entrega (200)"))
+                .when(contratos).finalizar(eq(r.getId()), anyString(), any());
+
+        var e = error(() -> service.modificar(r.getId(), cambioEstado(EstadoReserva.FINALIZADA), ADMIN));
+
+        assertEquals("SOLICITUD_INVALIDA", e.getCodigo());
+        assertEquals(EstadoReserva.EN_CURSO, r.getEstado());   // sigue en curso
+        verify(reservas, never()).save(any());                 // no se guardo ningun cambio
+        verify(flota, never()).liberar(any());                 // el vehiculo sigue alquilado
+        verify(flota, never()).marcarDevuelto(any(), any());
+    }
+
+    @Test
+    void elContratoSeCierraAntesDeFinalizarLaReservaYLaRevisionViajaCompleta() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        service.modificar(r.getId(), cambioEstado(EstadoReserva.FINALIZADA), ADMIN);
+
+        var orden = org.mockito.Mockito.inOrder(contratos, reservas, flota);
+        orden.verify(contratos).finalizar(r.getId(), "admin@hertz.test", DEVOLUCION);
+        orden.verify(reservas).save(any());
+        orden.verify(flota).marcarDevuelto(eq("ABC-103"), anyString());
+    }
+
+    // ---------------------------------------------------------------- daños de la devolucion -> incidencia -> mantenimiento
+
+    private static ModificarReservaRequest devolverConDanos(DanoDto... danos) {
+        return new ModificarReservaRequest(null, null, null, EstadoReserva.FINALIZADA, null, null, null,
+                new DevolucionDto(12980, "MEDIO", List.of(danos), null, true));
+    }
+
+    @Test
+    void devolverConDanosRegistraLaIncidenciaDespuesDeDejarElVehiculoDisponible() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        UUID idContrato = UUID.randomUUID();
+        when(contratos.finalizar(eq(r.getId()), anyString(), any())).thenReturn(idContrato);
+
+        service.modificar(r.getId(), devolverConDanos(
+                new DanoDto("LATERAL_DERECHO", "Abolladura profunda", "MODERADO", new BigDecimal("350.00")),
+                new DanoDto("LUNAS", "Espejo roto", "LEVE", new BigDecimal("180.50"))), ADMIN);
+
+        var orden = org.mockito.Mockito.inOrder(flota, incidencias);
+        orden.verify(flota).marcarDevuelto(eq("ABC-103"), anyString());   // primero queda disponible...
+        orden.verify(incidencias).registrarDanos(eq("ABC-103"), eq(idContrato), eq("DANO"),
+                org.mockito.ArgumentMatchers.argThat(t -> t.contains("Ana Prueba") && t.contains("Lado derecho")
+                        && t.contains("Abolladura profunda") && t.contains("S/ 350.00") && t.contains("Lunas y espejos")),
+                eq(new BigDecimal("530.50")), eq("admin@hertz.test"));   // ...y recien ahi pasa a mantenimiento
+    }
+
+    @Test
+    void sinDanosNuevosNoSeRegistraNingunaIncidencia() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        service.modificar(r.getId(), devolverConDanos(), ADMIN);
+        verify(incidencias, never()).registrarDanos(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void unDanoGraveSeTrataComoSiniestroYLosDemasComoDano() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        service.modificar(r.getId(), devolverConDanos(new DanoDto("FRONTAL", "Choque frontal", "GRAVE", null)), ADMIN);
+        verify(incidencias).registrarDanos(eq("ABC-103"), any(), eq("SINIESTRO"), anyString(), eq(null), anyString());
+        assertEquals("DANO", ReservaService.tipoIncidencia(List.of(new DanoDto("TECHO", "Rayón", "LEVE", null),
+                new DanoDto("INTERIOR", "Mancha", "MODERADO", null))));
+    }
+
+    @Test
+    void siLaIncidenciaFallaLaDevolucionQuedaRegistradaYSePuedeReintentarSinDuplicar() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        doThrow(ReservaException.servicioNoDisponible("ServicioIncidencia", "intenta nuevamente"))
+                .doReturn(true)
+                .when(incidencias).registrarDanos(any(), any(), any(), any(), any(), any());
+        var pedido = devolverConDanos(new DanoDto("FRONTAL", "Parachoques roto", "MODERADO", new BigDecimal("200")));
+
+        var e = error(() -> service.modificar(r.getId(), pedido, ADMIN));
+
+        assertEquals("SERVICIO_NO_DISPONIBLE", e.getCodigo());
+        assertTrue(e.getMessage().contains("La devolución quedó registrada"), e.getMessage());
+        assertEquals(EstadoReserva.FINALIZADA, r.getEstado());          // la devolucion no se pierde
+        verify(flota).marcarDevuelto(eq("ABC-103"), anyString());
+
+        // Volver a registrar la devolucion completa lo pendiente (el cliente de incidencias evita duplicar).
+        assertEquals(EstadoReserva.FINALIZADA, service.modificar(r.getId(), pedido, ADMIN).estado());
+        verify(incidencias, times(2)).registrarDanos(eq("ABC-103"), any(), eq("DANO"), anyString(), any(), anyString());
+    }
+
+    @Test
+    void siFaltaOVuelveDanadoUnElementoNuevoTambienSeRegistraLaIncidencia() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        var inventario = List.of(
+                new ItemDto("GATA", "OK", null, false),
+                new ItemDto("EXTINTOR", "FALTA", new BigDecimal("90.00"), true),
+                new ItemDto("TRIANGULO", "FALTA", null, false));   // ya faltaba al entregar: no es del cliente
+        var pedido = new ModificarReservaRequest(null, null, null, EstadoReserva.FINALIZADA, null, null, null,
+                new DevolucionDto(12980, "MEDIO", List.of(), null, true, inventario));
+
+        service.modificar(r.getId(), pedido, ADMIN);
+
+        verify(incidencias).registrarDanos(eq("ABC-103"), any(), eq("DANO"),
+                org.mockito.ArgumentMatchers.argThat(t -> t.contains("Extintor (falta) - S/ 90.00") && !t.contains("Triángulo")),
+                eq(new BigDecimal("90.00")), eq("admin@hertz.test"));
+    }
+
+    @Test
+    void sinDanosNiElementosNuevosConProblemaNoHayIncidencia() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        var pedido = new ModificarReservaRequest(null, null, null, EstadoReserva.FINALIZADA, null, null, null,
+                new DevolucionDto(12980, "MEDIO", List.of(), null, true,
+                        List.of(new ItemDto("EXTINTOR", "FALTA", null, false))));   // ya faltaba y no se cobra
+        service.modificar(r.getId(), pedido, ADMIN);
+        verify(incidencias, never()).registrarDanos(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void laDescripcionDeLaIncidenciaEsClaraYNoSuperaElLimite() {
+        Reserva r = reserva(EstadoReserva.EN_CURSO);
+        String texto = ReservaService.descripcionDanos(r, List.of(
+                new DanoDto("POSTERIOR", "Luz trasera rota", "LEVE", new BigDecimal("45.5")),
+                new DanoDto("INTERIOR", "Quemadura en el asiento", "MODERADO", null)));
+        assertTrue(texto.startsWith("Daños causados en el alquiler de Ana Prueba (reserva " + r.getId().toString().substring(0, 8) + "): "), texto);
+        assertTrue(texto.contains("1) Parte trasera (leve): Luz trasera rota - S/ 45.50"), texto);
+        assertTrue(texto.contains("2) Interior (moderado): Quemadura en el asiento"), texto);
+
+        var muchos = new java.util.ArrayList<DanoDto>();
+        for (int i = 0; i < 30; i++) {
+            muchos.add(new DanoDto("OTRO", "Rayón largo número " + i + " ".repeat(5) + "x".repeat(40), "LEVE", new BigDecimal("10")));
+        }
+        assertEquals(500, ReservaService.descripcionDanos(r, muchos).length());   // acotada a lo que admite Incidencias
     }
 }

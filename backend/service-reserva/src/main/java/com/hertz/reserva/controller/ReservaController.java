@@ -67,13 +67,14 @@ public class ReservaController {
             @RequestParam(required = false) EstadoReserva estado,
             @RequestParam(required = false) String sucursal,
             @RequestParam(required = false) Boolean recogenHoy,
+            @RequestParam(required = false) String placa,
             @RequestParam(required = false) Integer pagina,
             @RequestParam(required = false) Integer tamano,
             @RequestHeader(value = "X-Usuario", required = false) String usuario,
             @RequestHeader(value = "X-Rol", required = false) String rol,
             @RequestHeader(value = "X-Sucursal", required = false) String headerSucursal) {
-        return service.listar(tipoDocumento, numeroDocumento, idCliente, estado, sucursal, recogenHoy, pagina, tamano,
-                new Actor(usuario, rol, headerSucursal));
+        return service.listar(tipoDocumento, numeroDocumento, idCliente, estado, sucursal, recogenHoy, placa, pagina,
+                tamano, new Actor(usuario, rol, headerSucursal));
     }
 
     // GET /api/v1/reserva/{idReserva}  -> consultarReserva por id.

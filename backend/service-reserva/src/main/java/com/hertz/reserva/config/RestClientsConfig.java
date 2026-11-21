@@ -47,6 +47,12 @@ public class RestClientsConfig {
     }
 
     @Bean
+    public RestClient incidenciaRestClient(@Value("${services.incidencia.url}") String url,
+                                           @Value("${gateway.secret}") String secreto) {
+        return crear(url, secreto);
+    }
+
+    @Bean
     public RestClient contratoRestClient(@Value("${services.contrato.url}") String url,
                                          @Value("${gateway.secret}") String secreto) {
         return crear(url, secreto);
