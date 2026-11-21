@@ -21,6 +21,11 @@ public class IncidenciaException extends RuntimeException {
                 "El vehículo no existe en la flota");
     }
 
+    public static IncidenciaException incidenciaCerrada() {
+        return new IncidenciaException("INCIDENCIA_CERRADA", HttpStatus.CONFLICT,
+                "La incidencia ya está cerrada: su ficha solo se puede consultar");
+    }
+
     public static IncidenciaException incidenciaNoEncontrada() {
         return new IncidenciaException("INCIDENCIA_NO_ENCONTRADA", HttpStatus.NOT_FOUND,
                 "La incidencia no existe");
