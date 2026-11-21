@@ -48,4 +48,27 @@ public class ContratoException extends RuntimeException {
         return new ContratoException("SERVICIO_NO_DISPONIBLE", HttpStatus.SERVICE_UNAVAILABLE,
                 "No se pudo comunicar con " + servicio + ". Inténtalo nuevamente.");
     }
+
+    public static ContratoException contratoNoFirmado() {
+        return new ContratoException("CONTRATO_NO_FIRMADO", HttpStatus.BAD_REQUEST,
+                "Confirma que el contrato impreso fue firmado por el cliente antes de entregar el vehículo");
+    }
+
+    public static ContratoException revisionInvalida(String detalle) {
+        return new ContratoException("REVISION_INVALIDA", HttpStatus.BAD_REQUEST, detalle);
+    }
+
+    public static ContratoException documentoNoEncontrado() {
+        return new ContratoException("DOCUMENTO_NO_ENCONTRADO", HttpStatus.NOT_FOUND,
+                "Este contrato todavía no tiene el contrato firmado escaneado");
+    }
+
+    public static ContratoException documentoInvalido(String detalle) {
+        return new ContratoException("DOCUMENTO_INVALIDO", HttpStatus.BAD_REQUEST, detalle);
+    }
+
+    public static ContratoException documentoMuyGrande() {
+        return new ContratoException("DOCUMENTO_MUY_GRANDE", HttpStatus.PAYLOAD_TOO_LARGE,
+                "El archivo supera el máximo permitido de 5 MB");
+    }
 }

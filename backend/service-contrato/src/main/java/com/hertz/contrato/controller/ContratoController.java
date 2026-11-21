@@ -2,10 +2,16 @@ package com.hertz.contrato.controller;
 
 import com.hertz.contrato.dto.ContratoResponse;
 import com.hertz.contrato.dto.CrearContratoRequest;
+import com.hertz.contrato.dto.DevolucionRequest;
 import com.hertz.contrato.dto.PaginaContratosResponse;
 import com.hertz.contrato.entity.EstadoContrato;
 import com.hertz.contrato.service.ContratoService;
+import com.hertz.contrato.entity.ContratoDocumento;
 import jakarta.validation.Valid;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,6 +24,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @RestController
@@ -37,7 +45,7 @@ public class ContratoController {
             @RequestHeader(value = "X-Usuario", required = false) String usuario,
             @RequestHeader(value = "X-Rol", required = false) String rol,
             @RequestHeader(value = "X-Sucursal", required = false) String sucursal) {
-        return service.crear(request.idReserva(), rol, sucursal, usuario);
+        return service.crear(request.idReserva(), request.entrega(), request.contratoFirmado(), rol, sucursal, usuario);
     }
 
     @GetMapping
@@ -72,8 +80,38 @@ public class ContratoController {
     @PutMapping("/reserva/{idReserva}/finalizar")
     public ContratoResponse finalizarPorReserva(
             @PathVariable UUID idReserva,
+            @Valid @RequestBody DevolucionRequest devolucion,
+            @RequestHeader(value = "X-Usuario", required = false) String usuario,
             @RequestHeader(value = "X-Rol", required = false) String rol,
             @RequestHeader(value = "X-Sucursal", required = false) String sucursal) {
-        return service.finalizarPorReserva(idReserva, rol, sucursal);
+        return service.finalizarPorReserva(idReserva, devolucion, rol, sucursal, usuario);
+    }
+
+    /** Sube (o reemplaza) el contrato firmado y escaneado. Formulario con el archivo en el campo "archivo". */
+    @PostMapping(path = "/{id}/documento", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ContratoResponse subirDocumento(
+            @PathVariable UUID id,
+            @RequestParam("archivo") MultipartFile archivo,
+            @RequestHeader(value = "X-Usuario", required = false) String usuario,
+            @RequestHeader(value = "X-Rol", required = false) String rol,
+            @RequestHeader(value = "X-Sucursal", required = false) String sucursal) throws IOException {
+        return service.subirDocumento(id, rol, sucursal, usuario, archivo.getOriginalFilename(), archivo.getBytes());
+    }
+
+    /** Devuelve el contrato firmado para abrirlo en el navegador. */
+    @GetMapping("/{id}/documento")
+    public ResponseEntity<byte[]> verDocumento(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-Rol", required = false) String rol,
+            @RequestHeader(value = "X-Sucursal", required = false) String sucursal) {
+        ContratoDocumento documento = service.obtenerDocumento(id, rol, sucursal);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(documento.getTipoContenido()))
+                .contentLength(documento.getContenido().length)
+                .header("Content-Disposition", ContentDisposition.inline()
+                        .filename(documento.getNombreArchivo(), StandardCharsets.UTF_8).build().toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .header("Cache-Control", "private, no-store")
+                .body(documento.getContenido());
     }
 }

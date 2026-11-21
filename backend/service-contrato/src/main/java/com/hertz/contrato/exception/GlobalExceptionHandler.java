@@ -6,7 +6,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
@@ -32,6 +35,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleJson(HttpMessageNotReadableException ex) {
         return ResponseEntity.badRequest().body(ErrorResponse.of(
                 "SOLICITUD_INVALIDA", "El cuerpo no es un JSON válido o contiene datos con formato incorrecto"));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleArchivoGrande(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ErrorResponse.of(
+                "DOCUMENTO_MUY_GRANDE", "El archivo supera el máximo permitido de 5 MB"));
+    }
+
+    @ExceptionHandler({MissingServletRequestPartException.class, MissingServletRequestParameterException.class})
+    public ResponseEntity<ErrorResponse> handleFaltaArchivo(Exception ex) {
+        return ResponseEntity.badRequest().body(ErrorResponse.of(
+                "DOCUMENTO_INVALIDO", "Adjunta el archivo del contrato firmado en el campo «archivo»"));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

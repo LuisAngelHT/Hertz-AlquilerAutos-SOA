@@ -13,6 +13,10 @@ spring:
     hikari:
       maximum-pool-size: 3
       minimum-idle: 1
+  servlet:
+    multipart:
+      max-file-size: 5MB      # contrato firmado escaneado (igual que el SQL)
+      max-request-size: 6MB
   jpa:
     open-in-view: false
     hibernate:

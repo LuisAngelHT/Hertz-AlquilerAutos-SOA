@@ -75,6 +75,16 @@ public class Contrato {
         this.actualizadoEn = this.creadoEn;
     }
 
+    /**
+     * El inicio real de un alquiler es el día en que se entrega el vehículo, no la fecha de la reserva. Si el
+     * contrato quedó con un inicio posterior (la reserva era para más adelante y se entregó antes), se corrige.
+     */
+    public void ajustarInicioA(LocalDate entregaReal) {
+        if (fechaInicio.isAfter(entregaReal)) {
+            fechaInicio = entregaReal;
+        }
+    }
+
     public void finalizar(LocalDate fecha) {
         if (estado == EstadoContrato.FINALIZADO) {
             return;
