@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { FichaContratoPage } from "@/features/contratos/components/ficha-contrato-page";
 
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function FichaContrato() {
-  return <FichaContratoPage />;
+  // FichaContratoPage lee el id de la dirección (useParams): con cacheComponents, `next build` exige un límite Suspense.
+  return (
+    <Suspense>
+      <FichaContratoPage />
+    </Suspense>
+  );
 }
